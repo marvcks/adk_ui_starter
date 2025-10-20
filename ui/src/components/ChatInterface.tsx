@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { Send } from 'lucide-react'
+import { Send, Menu, ChevronLeft } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import SessionList from './SessionList'
 import { useAgentConfig } from '../hooks/useAgentConfig'
@@ -37,6 +37,7 @@ const ChatInterface: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [showLoadingDelay, setShowLoadingDelay] = useState(false)
   const [isCreatingSession, setIsCreatingSession] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const messageIdef = useRef<Set<string>>(new Set())
@@ -78,7 +79,7 @@ const ChatInterface: React.FC = () => {
     // Keep track of current websocket instance
     let currentWebSocket: WebSocket | null = null
     let reconnectTimeout: ReturnType<typeof setTimeout> | null = null
-    
+
     // Connect to WebSocket
     const connectWebSocket = () => {
       // Clean up any existing connection
@@ -123,18 +124,20 @@ const ChatInterface: React.FC = () => {
         console.error('WebSocket error:', error)
         setConnectionStatus('disconnected')
       }
-      
+
       websocket.onclose = () => {
+        console.log('WebSocket disconnected')
         setConnectionStatus('disconnected')
         setWs(null)
-        // Only reconnect if this is the current websocket
-        if (websocket === currentWebSocket) {
-          // Reconnect after 3 seconds
-          reconnectTimeout = setTimeout(connectWebSocket, 3000)
-        }
+        
+        // Auto-reconnect after 3 seconds
+        reconnectTimeout = setTimeout(() => {
+          console.log('Attempting to reconnect...')
+          connectWebSocket()
+        }, 3000)
       }
     }
-    
+
     connectWebSocket()
     
     return () => {
@@ -230,6 +233,10 @@ const ChatInterface: React.FC = () => {
       e.preventDefault()
       handleSend()
     }
+  }
+
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen)
   }
 
   const handleWebSocketMessage = useCallback((data: any) => {
@@ -376,15 +383,27 @@ const ChatInterface: React.FC = () => {
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
       {/* Session List Sidebar */}
-      <div className="border-r border-gray-200 dark:border-gray-700" style={{ width: '280px' }}>
-        <SessionList
-          sessions={sessions}
-          currentSessionId={currentSessionId}
-          onCreateSession={handleCreateSession}
-          onSelectSession={handleSelectSession}
-          onDeleteSession={handleDeleteSession}
-        />
-      </div>
+      <AnimatePresence>
+        {sidebarOpen && (
+          <motion.div
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 280, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="border-r border-gray-200 dark:border-gray-700 overflow-hidden"
+          >
+            <div style={{ width: '280px' }}>
+              <SessionList
+                sessions={sessions}
+                currentSessionId={currentSessionId}
+                onCreateSession={handleCreateSession}
+                onSelectSession={handleSelectSession}
+                onDeleteSession={handleDeleteSession}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Main Content Area */}
       <div className="flex-1 flex transition-all duration-300">
@@ -392,10 +411,26 @@ const ChatInterface: React.FC = () => {
         <div className="flex-1 flex flex-col bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 aurora-bg">
         {/* Header */}
         <div className="px-4 py-3 border-b border-gray-200/50 dark:border-gray-700/50 glass-premium glass-glossy flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h1 className="text-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              {config.ui?.title || 'Agent'}
-            </h1>
+          <div className="flex items-center gap-4">
+            {/* Sidebar Toggle Button */}
+            <motion.button
+              onClick={toggleSidebar}
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              whileTap={{ scale: 0.95 }}
+              title={sidebarOpen ? "收起侧边栏" : "展开侧边栏"}
+            >
+              {sidebarOpen ? (
+                <ChevronLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+              ) : (
+                <Menu className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+              )}
+            </motion.button>
+            
+            <div className="flex items-center gap-3">
+              <h1 className="text-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                {config.ui?.title || 'Agent'}
+              </h1>
+            </div>
           </div>
           <div className="flex items-center gap-3">
             <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${
@@ -431,28 +466,34 @@ const ChatInterface: React.FC = () => {
                     className="w-20 h-20 mx-auto mb-4 object-contain"
                   />
                   <h3 className="text-lg font-medium text-gray-600 dark:text-gray-400 mb-2">
-                    欢迎使用 {config.agent?.name || 'Agent'}
+                    欢迎使用 {config.agent?.name || 'MolPilot'}
                   </h3>
                   <p className="text-sm text-gray-500 dark:text-gray-500 mb-8">
-                    {config.agent?.welcomeMessage || '输入您的数据文件路径，开始符号回归分析'}
+                    {config.agent?.welcomeMessage || '请告诉我需要进行的计算化学任务'}
                   </p>
                   
                   {/* 快速提示词按钮 */}
                   <div className="grid grid-cols-2 gap-4 max-w-2xl mx-auto">
                     <button
-                      onClick={() => handleQuickPrompt('Inorganic / Organic', '使用ORCA并行执行以下[化合物]的几何优化计算，采用Hartree-Fock (HF)方法和def2-SVP基组，气相条件。当计算成功完成后，请为下面列出的每个分子逐一生成单独的报告。每份报告应包含以下内容：总能量（以Hartree为单位）、点群对称性、偶极矩（以德拜为单位）、分子轨道分析（包括MO能量表及HOMO-LUMO能隙）、原子电荷分析（Mulliken、Löwdin和Hirshfeld方法）。\n\n有机化合物：\n1. 咖啡因（SMILES: CN1C=NC2=C1C(=O)N(C(=O)N2C)C）\n2. 可可碱（SMILES: CN1C=NC2=C1C(=O)NC(=O)N2C）\n3. 乙酰水杨酸（SMILES: CC(=O)OC1=CC=CC=C1C(=O)O）')}
+                      onClick={() => handleQuickPrompt(
+                        "Inorganic / Organic",
+                        "使用ORCA进行有机化合物的几何优化计算，采用Hartree-Fock方法和def2-SVP基组..."
+                      )}
                       className="p-4 text-left bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-lg transition-all duration-200 group"
                     >
                       <div className="font-medium text-gray-800 dark:text-gray-200 mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400">
                         Inorganic / Organic
                       </div>
                       <div className="text-xs text-gray-500 dark:text-gray-400 line-clamp-3">
-                        使用ORCA并行执行化合物的几何优化计算，采用Hartree-Fock方法和def2-SVP基组...
+                        使用ORCA进行有机化合物的几何优化计算，采用Hartree-Fock方法和def2-SVP基组...
                       </div>
                     </button>
                     
                     <button
-                      onClick={() => handleQuickPrompt('pKA', '使用B3LYP/6-31G*理论水平下的CPCM隐式溶剂模型，通过两种计算方法计算乙酸在水中的pKa值。')}
+                      onClick={() => handleQuickPrompt(
+                        "pKA",
+                        "使用B3LYP/6-31G*理论水平下的CPCM隐式溶剂模型计算乙酸在水中的pKa值..."
+                      )}
                       className="p-4 text-left bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-lg transition-all duration-200 group"
                     >
                       <div className="font-medium text-gray-800 dark:text-gray-200 mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400">
@@ -464,19 +505,25 @@ const ChatInterface: React.FC = () => {
                     </button>
                     
                     <button
-                      onClick={() => handleQuickPrompt('Carbocations', '给定一个碳正离子生成反应：R-H -> R+ + H-。你的任务是计算R-H为甲烷时的碳正离子生成焓和吉布斯自由能。\n\n请使用DFT方法（B3LYP泛函和6-31G*基组）优化这些结构（氢负离子除外），并从输出文件中提取相关信息，计算每种R-H的碳正离子生成焓和吉布斯自由能。将结果（单位为kcal/mol）以Markdown表格形式报告。\n\n关于电荷和自旋多重度：分子电荷为0，自旋多重度为1；碳正离子电荷为1，自旋多重度为1；氢负离子电荷为-1，自旋多重度为1。')}
+                      onClick={() => handleQuickPrompt(
+                        "Carbocations",
+                        "计算碳正离子的稳定性和各种取代基的能力，使用DFT方法化结构..."
+                      )}
                       className="p-4 text-left bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-lg transition-all duration-200 group"
                     >
                       <div className="font-medium text-gray-800 dark:text-gray-200 mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400">
                         Carbocations
                       </div>
                       <div className="text-xs text-gray-500 dark:text-gray-400 line-clamp-3">
-                        计算碳正离子生成焓和吉布斯自由能，使用DFT方法优化结构...
+                        计算碳正离子的稳定性和各种取代基的能力，使用DFT方法优化结构...
                       </div>
                     </button>
                     
                     <button
-                      onClick={() => handleQuickPrompt('Case Study', '研究添加隐式溶剂分子（水）如何改变丙氨酸分子的振动频率。比较气相计算和溶剂（CPCM）中的红外光谱计算结果。所有两个体系均使用PBE0/def2-TZVP方法。最后生成一份报告。')}
+                      onClick={() => handleQuickPrompt(
+                        "Case Study",
+                        "研究隐式溶剂分子对丙氨酸分子振动频率的影响，比较气相和溶剂计算结果..."
+                      )}
                       className="p-4 text-left bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-lg transition-all duration-200 group"
                     >
                       <div className="font-medium text-gray-800 dark:text-gray-200 mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400">
@@ -571,7 +618,7 @@ const ChatInterface: React.FC = () => {
               <button
                 onClick={handleSend}
                 disabled={!input.trim() || isLoading || connectionStatus !== 'connected'}
-                className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl font-medium hover:from-blue-600 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl flex items-center gap-2 btn-animated liquid-button"
+                className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl font-medium hover:from-blue-600 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl flex items-center gap-2"
               >
                 <Send className="w-4 h-4" />
                 发送

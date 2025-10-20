@@ -28,14 +28,14 @@ class AgentConfig:
         """Provide default configuration for Agent"""
         return {
             "agent": {
-                "name": "My Agent",
-                "description": "智能符号回归分析系统",
-                "welcomeMessage": "输入您的数据文件路径，开始符号回归分析",
+                "name": "MolPilot",
+                "description": "计算化学智能体",
+                "welcomeMessage": "请告诉我需要进行的计算化学任务",
                 "module": "agent.subagent",
                 "rootAgent": "rootagent"
             },
             "ui": {
-                "title": "Agent",
+                "title": "MolPilot",
                 "features": {
                     "showFileExplorer": True,
                     "showSessionList": True
