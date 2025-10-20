@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import { prism } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import Card from '../components/Card'
 import Button from '../components/Button'
 import Badge from '../components/Badge'
@@ -211,7 +211,7 @@ The discovered expressions provide interpretable models for the underlying data 
                   const match = /language-(\w+)/.exec(className || '')
                   return !inline && match ? (
                     <SyntaxHighlighter
-                      style={vscDarkPlus}
+                      style={prism}
                       language={match[1]}
                       PreTag="div"
                       {...props}
@@ -237,7 +237,7 @@ The discovered expressions provide interpretable models for the underlying data 
           return (
             <SyntaxHighlighter
               language="json"
-              style={vscDarkPlus}
+              style={prism}
               customStyle={{
                 margin: 0,
                 borderRadius: '0.5rem',

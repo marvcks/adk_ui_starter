@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Copy, Check, Download } from 'lucide-react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { prism } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface EnhancedCodeBlockProps {
@@ -46,23 +46,23 @@ export const EnhancedCodeBlock: React.FC<EnhancedCodeBlockProps> = React.memo(({
   const CodeContent = () => (
     <div className="relative group">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2 bg-gray-900 border-b border-gray-700 rounded-t-lg">
+      <div className="flex items-center justify-between px-4 py-2 bg-gray-100 border-b border-gray-300 rounded-t-lg">
         <div className="flex items-center gap-3">
           {filename ? (
-            <span className="text-sm text-gray-400 font-mono">{filename}</span>
+            <span className="text-sm text-gray-600 font-mono">{filename}</span>
           ) : language === 'json' ? (
-            <span className="text-sm text-gray-400 font-mono">结果</span>
+            <span className="text-sm text-gray-600 font-mono">结果</span>
           ) : null}
         </div>
         <div className={`flex items-center gap-2 ${language === 'json' ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}>
           <motion.button
             onClick={handleCopy}
-            className="p-1.5 rounded hover:bg-gray-700 transition-colors text-gray-400 hover:text-white"
+            className="p-1.5 rounded hover:bg-gray-200 transition-colors text-gray-600 hover:text-gray-800"
             whileTap={{ scale: 0.95 }}
             title="复制代码"
           >
             {copied ? (
-              <Check className="w-4 h-4 text-green-400" />
+              <Check className="w-4 h-4 text-green-600" />
             ) : (
               <Copy className="w-4 h-4" />
             )}
@@ -70,7 +70,7 @@ export const EnhancedCodeBlock: React.FC<EnhancedCodeBlockProps> = React.memo(({
           {filename && (
             <motion.button
               onClick={handleDownload}
-              className="p-1.5 rounded hover:bg-gray-700 transition-colors text-gray-400 hover:text-white"
+              className="p-1.5 rounded hover:bg-gray-200 transition-colors text-gray-600 hover:text-gray-800"
               whileTap={{ scale: 0.95 }}
               title="下载代码"
             >
@@ -84,7 +84,7 @@ export const EnhancedCodeBlock: React.FC<EnhancedCodeBlockProps> = React.memo(({
       <div className="overflow-auto max-h-96">
         <SyntaxHighlighter
           language={language}
-          style={vscDarkPlus}
+          style={prism}
           showLineNumbers={language === 'json' ? false : showLineNumbers}
           customStyle={{
             margin: 0,
@@ -92,7 +92,7 @@ export const EnhancedCodeBlock: React.FC<EnhancedCodeBlockProps> = React.memo(({
             fontSize: '0.875rem',
             lineHeight: '1.5',
             padding: '1rem',
-            background: language === 'json' ? '#1e293b' : undefined
+            background: language === 'json' ? '#f8f9fa' : undefined
           }}
           wrapLines={true}
           wrapLongLines={true}

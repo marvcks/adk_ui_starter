@@ -42,6 +42,8 @@ const ChatInterface: React.FC = () => {
   const messageIdef = useRef<Set<string>>(new Set())
   const loadingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   
+  // 移除了HTML预览相关的函数
+
   // Load agent configuration
   const { config, loading: configLoading } = useAgentConfig()
 
@@ -385,7 +387,7 @@ const ChatInterface: React.FC = () => {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex">
+      <div className="flex-1 flex transition-all duration-300">
         {/* Chat Area */}
         <div className="flex-1 flex flex-col bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 aurora-bg">
         {/* Header */}
@@ -419,7 +421,7 @@ const ChatInterface: React.FC = () => {
 
         {/* Messages Area */}
         <div className="flex-1 overflow-y-auto px-4 py-6 relative">
-          <div className="max-w-4xl mx-auto space-y-6 h-full">
+          <div className="max-w-4xl mx-auto space-y-4 h-full">
             {messages.length === 0 ? (
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="text-center">
@@ -489,11 +491,13 @@ const ChatInterface: React.FC = () => {
               </div>
             ) : (
               <AnimatePresence initial={false} mode="popLayout">
-                {messages.map((message, index) => (
+                {messages
+                  .filter(message => message.role !== 'tool') // 过滤掉工具消息
+                  .map((message, index, filteredMessages) => (
                   <motion.div
                     key={message.id}
                     layout="position"
-                    initial={index === messages.length - 1 ? { opacity: 0, y: 20 } : false}
+                    initial={index === filteredMessages.length - 1 ? { opacity: 0, y: 20 } : false}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -20 }}
                     transition={{ duration: 0.2 }}
@@ -506,7 +510,7 @@ const ChatInterface: React.FC = () => {
                       role={message.role}
                       content={message.content}
                       timestamp={message.timestamp}
-                      isLastMessage={index === messages.length - 1}
+                      isLastMessage={index === filteredMessages.length - 1}
                       isStreaming={message.isStreaming}
                       tool_name={message.tool_name}
                       tool_status={message.tool_status}

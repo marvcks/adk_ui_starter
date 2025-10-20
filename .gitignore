@@ -83,3 +83,5 @@ coverage.xml
 .env.development.local
 .env.test.local
 .env.production.local
+agent-config.json
+molpilot_agent

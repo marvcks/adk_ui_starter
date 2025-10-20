@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react'
 import { ChevronRight, ChevronDown, File, Folder, FileText, Loader2, X, Copy, Check, Maximize2, Minimize2 } from 'lucide-react'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import { prism } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -173,7 +173,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
         return (
           <SyntaxHighlighter
             language="json"
-            style={vscDarkPlus}
+            style={prism}
             customStyle={{
               margin: 0,
               borderRadius: '0.5rem',
@@ -199,7 +199,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
             components={{
               pre({ node, children, ...props }: any) {
                 return (
-                  <pre className="overflow-x-auto bg-gray-900 text-gray-100 p-4 rounded-lg" {...props}>
+                  <pre className="overflow-x-auto bg-gray-100 text-gray-800 p-4 rounded-lg" {...props}>
                     {children}
                   </pre>
                 )
@@ -208,7 +208,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
                 const match = /language-(\w+)/.exec(className || '')
                 return !inline && match ? (
                   <SyntaxHighlighter
-                    style={vscDarkPlus}
+                    style={prism}
                     language={match[1]}
                     customStyle={{
                       margin: 0,
@@ -249,7 +249,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
     return (
       <SyntaxHighlighter
         language={language}
-        style={vscDarkPlus}
+        style={prism}
         customStyle={{
           margin: 0,
           borderRadius: '0.5rem',

@@ -177,11 +177,11 @@
 }
 
 .prose pre {
-  @apply bg-gray-900 dark:bg-black;
+  @apply bg-gray-100 dark:bg-black;
 }
 
 .prose pre code {
-  @apply bg-transparent text-gray-100;
+  @apply bg-transparent text-gray-800;
 }
 
 .prose blockquote {

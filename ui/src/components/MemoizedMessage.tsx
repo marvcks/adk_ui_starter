@@ -1,11 +1,10 @@
-import React from 'react';
-import { Bot, User } from 'lucide-react';
+import React, { useState } from 'react';
+import { Copy, Check } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { createCodeComponent } from './EnhancedCodeBlock';
 import { MemoizedMarkdown } from './MemoizedMarkdown';
 import { StreamingText } from './MessageAnimation';
-import { ToolCallPanel } from './ToolCallPanel';
 
 interface MessageProps {
   id: string;
@@ -30,75 +29,88 @@ export const MemoizedMessage = React.memo<MessageProps>(({
   tool_status,
   input_params
 }) => {
-  // 如果是工具消息且有工具信息，使用ToolCallPanel
-  if (role === 'tool' && tool_name && tool_status) {
-    return (
-      <div className="flex space-x-3 mb-4">
-        <div className="flex-shrink-0">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center shadow-lg">
-            <Bot className="w-5 h-5 text-white" />
-          </div>
-        </div>
-        <div className="flex-1">
-          <ToolCallPanel
-            toolName={tool_name}
-            status={tool_status as any}
-            timestamp={timestamp}
-            result={content}
-            inputParams={input_params}
-          />
-        </div>
-      </div>
-    );
+  const [copied, setCopied] = useState(false);
+
+  // 如果是工具消息，直接返回null，不展示
+  if (role === 'tool') {
+    return null;
   }
 
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy text: ', err);
+    }
+  };
+
   return (
-    <>
-      {role !== 'user' && (
-        <div className="flex-shrink-0">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center shadow-lg">
-            <Bot className="w-5 h-5 text-white" />
-          </div>
-        </div>
-      )}
-      
-      <div className={`max-w-[80%] ${role === 'user' ? 'order-1' : ''}`}>
-        <div className={`rounded-2xl px-4 py-3 shadow-sm ${
-          role === 'user'
-            ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white'
-            : role === 'tool'
-            ? 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700 glass-premium'
-            : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700 glass-premium shadow-depth'
-        }`}>
-          {role === 'tool' ? (
-            <div className="prose prose-sm dark:prose-invert max-w-none">
-              {/* 对于工具消息，直接显示内容，避免Markdown渲染问题 */}
-              <div className="whitespace-pre-wrap text-sm">
-                {content}
-              </div>
-            </div>
-          ) : role === 'assistant' ? (
-            <div className="prose prose-sm dark:prose-invert max-w-none">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                components={{
-                  code: ({ node, inline, className, children, ...props }: any) => {
-                    const match = /language-(\w+)/.exec(className || '');
-                    return !inline && match ? (
-                      <div className="bg-gray-100 dark:bg-gray-700 rounded p-3 my-2 overflow-x-auto">
-                        <pre className="text-sm font-mono text-gray-800 dark:text-gray-200">
-                          <code className={className} {...props}>
-                            {children}
-                          </code>
-                        </pre>
-                      </div>
-                    ) : (
-                      <code className="bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded text-sm font-mono text-gray-800 dark:text-gray-200" {...props}>
-                        {children}
-                      </code>
-                    );
-                  },
-                  a({ node, children, href, ...props }: any) {
+    <div className={`max-w-[80%] ${role === 'user' ? 'ml-auto' : 'mr-auto'} group`}>
+      <div className={`rounded-2xl px-4 py-3 shadow-sm ${
+        role === 'user'
+          ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white'
+          : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700 glass-premium shadow-depth'
+      }`}>
+        {role === 'assistant' ? (
+          <div className="prose prose-sm dark:prose-invert max-w-none">
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                code: ({ node, inline, className, children, ...props }: any) => {
+                  const match = /language-(\w+)/.exec(className || '');
+                  return !inline && match ? (
+                    <div className="bg-gray-50 border border-gray-200 rounded p-3 my-2 overflow-x-auto">
+                      <pre className="text-sm font-mono text-gray-700">
+                        <code className={className} {...props}>
+                          {children}
+                        </code>
+                      </pre>
+                    </div>
+                  ) : (
+                    <code className="bg-gray-100 px-1 py-0.5 rounded text-sm font-mono text-gray-700" {...props}>
+                      {children}
+                    </code>
+                  );
+                },
+                a({ node, children, href, ...props }: any) {
+                  // 更精确的HTML文件检测
+                  const isHtmlFile = href && (
+                    href.endsWith('.html') || 
+                    href.endsWith('.htm') || 
+                    href.includes('.html?') ||
+                    href.includes('.htm?') ||
+                    href.includes('.html#') ||
+                    href.includes('.htm#')
+                  );
+                  
+                  // 提取文件名，处理各种URL格式
+                  let fileName = 'file.html';
+                  if (href) {
+                    try {
+                      const url = new URL(href, window.location.href);
+                      const pathParts = url.pathname.split('/');
+                      const lastPart = pathParts[pathParts.length - 1];
+                      if (lastPart && (lastPart.includes('.html') || lastPart.includes('.htm'))) {
+                        fileName = lastPart;
+                      } else if (lastPart) {
+                        fileName = lastPart + '.html';
+                      }
+                    } catch {
+                      // 如果URL解析失败，使用简单的字符串处理
+                      const parts = href.split('/');
+                      const lastPart = parts[parts.length - 1];
+                      if (lastPart) {
+                        fileName = lastPart.split('?')[0].split('#')[0];
+                        if (!fileName.includes('.')) {
+                          fileName += '.html';
+                        }
+                      }
+                    }
+                  }
+                  
+                  if (isHtmlFile) {
                     return (
                       <a
                         href={href}
@@ -109,43 +121,64 @@ export const MemoizedMessage = React.memo<MessageProps>(({
                       >
                         {children}
                       </a>
-                    )
-                  },
-                  p({ children }: any) {
-                    if (isLastMessage && isStreaming) {
-                      return (
-                        <p>
-                          <StreamingText
-                            text={String(children)}
-                            isStreaming={true}
-                          />
-                        </p>
-                      )
-                    }
-                    return <p>{children}</p>
+                    );
                   }
-                }}
-              >
-                {content}
-              </ReactMarkdown>
-            </div>
-          ) : (
-            <p className="text-sm whitespace-pre-wrap">{content}</p>
-          )}
-        </div>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 px-1">
-          {timestamp.toLocaleTimeString('zh-CN')}
-        </p>
+                  
+                  return (
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline"
+                      {...props}
+                    >
+                      {children}
+                    </a>
+                  )
+                },
+                p({ children }: any) {
+                  if (isLastMessage && isStreaming) {
+                    return (
+                      <p>
+                        <StreamingText
+                          text={String(children)}
+                          isStreaming={true}
+                        />
+                      </p>
+                    )
+                  }
+                  return <p>{children}</p>
+                }
+              }}
+            >
+              {content}
+            </ReactMarkdown>
+          </div>
+        ) : (
+          <p className="text-sm whitespace-pre-wrap">{content}</p>
+        )}
       </div>
       
-      {role === 'user' && (
-        <div className="flex-shrink-0 order-2">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 flex items-center justify-center shadow-lg">
-            <User className="w-5 h-5 text-white" />
-          </div>
-        </div>
-      )}
-    </>
+      {/* 复制按钮 */}
+      <div className="flex justify-end mt-2">
+        <button
+          onClick={copyToClipboard}
+          className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 shadow-sm"
+        >
+          {copied ? (
+            <>
+              <Check className="w-3 h-3" />
+              <span>已复制</span>
+            </>
+          ) : (
+            <>
+              <Copy className="w-3 h-3" />
+              <span>复制</span>
+            </>
+          )}
+        </button>
+      </div>
+    </div>
   );
 }, (prevProps, nextProps) => {
   // 只有当这些关键属性改变时才重新渲染
