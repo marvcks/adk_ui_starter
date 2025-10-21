@@ -30,12 +30,23 @@ from google.genai import types
 # Import configuration
 from config.agent_config import agentconfig
 
+# Import photon charging service
+from services.photon_service import PhotonService, init_photon_service, get_photon_service
+from config.photon_config import PHOTON_CONFIG, CHARGING_ENABLED, FREE_TOKEN_QUOTA
+
 # Get agent from configuration
 rootagent = agentconfig.get_agent()
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# 初始化光子收费服务
+if CHARGING_ENABLED:
+    init_photon_service(PHOTON_CONFIG)
+    logger.info("光子收费服务已启用")
+else:
+    logger.info("光子收费服务已禁用")
 
 @dataclass
 class Message:
@@ -124,6 +135,10 @@ class ConnectionContext:
         }
         # 为每个连接生成唯一的user_id
         self.user_id = f"user_{uuid.uuid4().hex[:8]}"
+        # 用户认证信息
+        self.app_access_key: Optional[str] = None
+        self.client_name: Optional[str] = None
+        self.is_authenticated: bool = False
 
 class SessionManager:
     def __init__(self):
@@ -334,6 +349,10 @@ class SessionManager:
             all_events = []
             seen_tool_calls = set()  # 跟踪已发送的工具调用
             seen_tool_responses = set()  # 跟踪已发送的工具响应
+            usage_metadata = None  # 存储 token 使用信息
+            
+            # 使用 runner.run_async 并获取完整响应
+            logger.info("Starting ADK runner...")
             
             async for event in runner.run_async(
                 new_message=content,
@@ -342,6 +361,46 @@ class SessionManager:
             ):
                 all_events.append(event)
                 logger.info(f"Received event: {type(event).__name__}")
+                
+                # 检查事件是否包含 usage_metadata
+                if hasattr(event, 'usage_metadata') and event.usage_metadata:
+                    logger.info(f"Found usage_metadata in event: {event.usage_metadata}")
+                    try:
+                        # Google ADK 的 usage_metadata 通常包含这些字段
+                        usage_metadata = {
+                            'prompt_tokens': getattr(event.usage_metadata, 'prompt_token_count', 0),
+                            'candidates_tokens': getattr(event.usage_metadata, 'candidates_token_count', 0),
+                            'total_tokens': getattr(event.usage_metadata, 'total_token_count', 0)
+                        }
+                        logger.info(f"Extracted usage_metadata: {usage_metadata}")
+                    except Exception as e:
+                        logger.error(f"Error extracting usage_metadata: {e}")
+                        # 尝试其他可能的字段名
+                        try:
+                            usage_metadata = {
+                                'prompt_tokens': getattr(event.usage_metadata, 'prompt_tokens', 0),
+                                'candidates_tokens': getattr(event.usage_metadata, 'candidates_tokens', 0),
+                                'total_tokens': getattr(event.usage_metadata, 'total_tokens', 0)
+                            }
+                            logger.info(f"Extracted usage_metadata (fallback): {usage_metadata}")
+                        except Exception as e2:
+                            logger.error(f"Fallback extraction failed: {e2}")
+                            logger.info(f"usage_metadata attributes: {dir(event.usage_metadata)}")
+                            logger.info(f"usage_metadata content: {event.usage_metadata}")
+                
+                # 检查是否有 response 对象包含 usage_metadata
+                if hasattr(event, 'response') and event.response:
+                    if hasattr(event.response, 'usage_metadata') and event.response.usage_metadata:
+                        logger.info(f"Found usage_metadata in response: {event.response.usage_metadata}")
+                        try:
+                            usage_metadata = {
+                                'prompt_tokens': getattr(event.response.usage_metadata, 'prompt_token_count', 0),
+                                'candidates_tokens': getattr(event.response.usage_metadata, 'candidates_token_count', 0),
+                                'total_tokens': getattr(event.response.usage_metadata, 'total_token_count', 0)
+                            }
+                            logger.info(f"Extracted usage_metadata from response: {usage_metadata}")
+                        except Exception as e:
+                            logger.error(f"Error extracting usage_metadata from response: {e}")
                 
                 # 检查事件中的工具调用（按照官方示例）
                 if hasattr(event, 'content') and event.content and hasattr(event.content, 'parts'):
@@ -471,11 +530,76 @@ class SessionManager:
                 # 保存助手回复到会话历史
                 session.add_message("assistant", final_response)
                 
-                await self.send_to_connection(context, {
+                # 构建响应消息，包含 usage_metadata
+                response_message = {
                     "type": "assistant",
                     "content": final_response,
                     "session_id": context.current_session_id
-                })
+                }
+                
+                # 如果有 token 使用信息，添加到响应中
+                if usage_metadata:
+                    response_message["usage_metadata"] = usage_metadata
+                    
+                    # 执行光子收费（如果启用）
+                    if CHARGING_ENABLED:
+                        photon_service = get_photon_service()
+                        if photon_service:
+                            try:
+                                # 获取输入输出token数量
+                                input_tokens = usage_metadata.get('prompt_tokens', 0)
+                                output_tokens = usage_metadata.get('candidates_tokens', 0)
+                                
+                                # 计算工具调用次数（从消息历史中统计）
+                                tool_calls = 0
+                                if hasattr(context, 'current_session') and context.current_session:
+                                    # 统计当前会话中最后一次用户消息后的工具调用次数
+                                    for msg in reversed(context.current_session.messages):
+                                        if msg.role == 'user':
+                                            break
+                                        if msg.role == 'tool':
+                                            tool_calls += 1
+                                
+                                if input_tokens > 0 or output_tokens > 0 or tool_calls > 0:
+                                    logger.info(f"Processing photon charge - Input tokens: {input_tokens}, Output tokens: {output_tokens}, Tool calls: {tool_calls}")
+                                    
+                                    # 执行收费
+                                    charge_result = await photon_service.charge_photon(
+                                        input_tokens=input_tokens,
+                                        output_tokens=output_tokens,
+                                        tool_calls=tool_calls,
+                                        request=None,  # WebSocket 连接中无法直接获取 Request 对象
+                                        context=context  # 传递 WebSocket 连接上下文
+                                    )
+                                    
+                                    # 将收费结果添加到响应中
+                                    response_message["charge_result"] = {
+                                        "success": charge_result.success,
+                                        "code": charge_result.code,
+                                        "message": charge_result.message,
+                                        "biz_no": charge_result.biz_no,
+                                        "photon_amount": charge_result.photon_amount,
+                                        "rmb_amount": charge_result.rmb_amount
+                                    }
+                                    
+                                    if charge_result.success:
+                                        logger.info(f"Photon charge successful: {charge_result.message}")
+                                    else:
+                                        logger.warning(f"Photon charge failed: {charge_result.message}")
+                                else:
+                                    logger.info("No tokens or tool calls to charge")
+                            except Exception as e:
+                                logger.error(f"Error during photon charging: {e}")
+                                response_message["charge_result"] = {
+                                    "success": False,
+                                    "code": -1,
+                                    "message": f"收费过程中发生错误: {str(e)}",
+                                    "biz_no": None,
+                                    "photon_amount": 0,
+                                    "rmb_amount": 0.0
+                                }
+                
+                await self.send_to_connection(context, response_message)
             else:
                 logger.warning("No response content found in events")
             
@@ -571,6 +695,28 @@ async def websocket_endpoint(websocket: WebSocket):
                         "content": "删除会话失败"
                     })
                     
+            elif message_type == "authenticate":
+                # 处理用户认证信息
+                app_access_key = data.get("appAccessKey", "").strip()
+                client_name = data.get("clientName", "").strip()
+                
+                if app_access_key:
+                    context.app_access_key = app_access_key
+                    context.client_name = client_name or "WebClient"
+                    context.is_authenticated = True
+                    logger.info(f"用户 {context.user_id} 认证成功，AccessKey: {app_access_key[:8]}...")
+                    
+                    await websocket.send_json({
+                        "type": "auth_success",
+                        "content": "认证成功"
+                    })
+                else:
+                    logger.warning(f"用户 {context.user_id} 认证失败：缺少AccessKey")
+                    await websocket.send_json({
+                        "type": "auth_error",
+                        "content": "认证失败：缺少AccessKey"
+                    })
+                    
             elif message_type == "shell_command":
                 command = data.get("command", "").strip()
                 if command:
@@ -579,7 +725,7 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         manager.disconnect_client(websocket)
     except Exception as e:
-        logger.error(f"WebSocket 错误: {e}")
+        logger.error(f"WebSocket 错误: {e}", exc_info=True)
         manager.disconnect_client(websocket)
 
 @app.get("/api/files/tree")

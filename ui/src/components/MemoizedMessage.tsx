@@ -16,6 +16,19 @@ interface MessageProps {
   tool_name?: string;
   tool_status?: string;
   input_params?: any;
+  usage_metadata?: {
+    prompt_tokens?: number;
+    candidates_tokens?: number;
+    total_tokens?: number;
+  };
+  charge_result?: {
+    success: boolean;
+    code: string;
+    message: string;
+    biz_no?: string;
+    photon_amount?: number;
+    rmb_amount?: number;
+  };
 }
 
 export const MemoizedMessage = React.memo<MessageProps>(({
@@ -27,7 +40,9 @@ export const MemoizedMessage = React.memo<MessageProps>(({
   isStreaming = false,
   tool_name,
   tool_status,
-  input_params
+  input_params,
+  usage_metadata,
+  charge_result
 }) => {
   const [copied, setCopied] = useState(false);
 
@@ -159,25 +174,93 @@ export const MemoizedMessage = React.memo<MessageProps>(({
         )}
       </div>
       
-      {/* 复制按钮 */}
-      <div className="flex justify-end mt-2">
-        <button
-          onClick={copyToClipboard}
-          className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 shadow-sm"
-        >
-          {copied ? (
-            <>
-              <Check className="w-3 h-3" />
-              <span>已复制</span>
-            </>
-          ) : (
-            <>
-              <Copy className="w-3 h-3" />
-              <span>复制</span>
-            </>
+      {/* Token 使用量和复制按钮 - 仅对 AI 消息显示 */}
+      {role === 'assistant' && (
+        <div className="mt-3 space-y-2">
+          {/* Token 使用量显示 */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+              <span className="font-medium">字数: {content.length}</span>
+              {usage_metadata && (
+                <>
+                  <span className="text-gray-300 dark:text-gray-600">|</span>
+                  <span>输入token: {usage_metadata.prompt_tokens || 0}</span>
+                  <span className="text-gray-300 dark:text-gray-600">|</span>
+                  <span>输出token: {usage_metadata.candidates_tokens || 0}</span>
+                </>
+              )}
+            </div>
+            
+            {/* 复制按钮 */}
+            <button
+              onClick={copyToClipboard}
+              className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+              title="复制消息"
+            >
+              {copied ? (
+                <>
+                  <Check className="w-3 h-3" />
+                  <span>已复制</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3 h-3" />
+                  <span>复制</span>
+                </>
+              )}
+            </button>
+          </div>
+          
+          {/* 收费信息显示 */}
+          {charge_result && (
+            <div className={`flex items-center gap-2 text-xs px-2 py-1 rounded ${
+              charge_result.success 
+                ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800'
+                : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800'
+            }`}>
+              <span className={`w-2 h-2 rounded-full ${
+                charge_result.success ? 'bg-green-500' : 'bg-red-500'
+              }`}></span>
+              <span className="font-medium">
+                {charge_result.success ? '✓ 收费成功' : '✗ 收费失败'}
+              </span>
+              <span className="text-gray-500 dark:text-gray-400">|</span>
+              <span>
+                消耗光子 {charge_result.photon_amount || 0} | RMB {(charge_result.rmb_amount || 0).toFixed(2)} 元
+              </span>
+              {charge_result.biz_no && (
+                <>
+                  <span className="text-gray-500 dark:text-gray-400">|</span>
+                  <span className="font-mono">订单: {charge_result.biz_no}</span>
+                </>
+              )}
+            </div>
           )}
-        </button>
-      </div>
+        </div>
+      )}
+      
+      {/* 用户消息的复制按钮 */}
+      {role === 'user' && (
+        <div className="flex justify-end mt-2">
+          <button
+            onClick={copyToClipboard}
+            className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+            title="复制消息"
+          >
+            {copied ? (
+              <>
+                <Check className="w-3 h-3" />
+                <span>已复制</span>
+              </>
+            ) : (
+              <>
+                <Copy className="w-3 h-3" />
+                <span>复制</span>
+              </>
+            )}
+          </button>
+        </div>
+      )}
     </div>
   );
 }, (prevProps, nextProps) => {
@@ -188,7 +271,9 @@ export const MemoizedMessage = React.memo<MessageProps>(({
          prevProps.isLastMessage === nextProps.isLastMessage &&
          prevProps.tool_name === nextProps.tool_name &&
          prevProps.tool_status === nextProps.tool_status &&
-         prevProps.input_params === nextProps.input_params;
+         prevProps.input_params === nextProps.input_params &&
+         JSON.stringify(prevProps.usage_metadata) === JSON.stringify(nextProps.usage_metadata) &&
+         JSON.stringify(prevProps.charge_result) === JSON.stringify(nextProps.charge_result);
 });
 
 MemoizedMessage.displayName = 'MemoizedMessage';

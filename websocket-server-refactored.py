@@ -473,7 +473,7 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         manager.disconnect_client(websocket)
     except Exception as e:
-        logger.error(f"WebSocket 错误: {e}")
+        logger.error(f"WebSocket 错误: {e}", exc_info=True)
         manager.disconnect_client(websocket)
 
 
@@ -738,4 +738,4 @@ if __name__ == "__main__":
     print("   - 状态机管理")
     print("   - 事件驱动架构")
     print("   - 服务层抽象")
-    uvicorn.run(app, host="0.0.0.0", port=8000) 
+    uvicorn.run(app, host="0.0.0.0", port=8000)

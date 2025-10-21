@@ -19,6 +19,17 @@ interface Message {
   tool_status?: string
   input_params?: any
   isStreaming?: boolean
+  usage_metadata?: {
+    prompt_tokens?: number
+    candidates_tokens?: number
+    total_tokens?: number
+  }
+  charge_result?: {
+    success: boolean
+    code: string
+    message: string
+    biz_no?: string
+  }
 }
 
 interface Session {
@@ -108,6 +119,38 @@ const ChatInterface: React.FC = () => {
         console.log('WebSocket connected')
         setConnectionStatus('connected')
         setWs(websocket)
+        
+        // 发送用户认证信息
+        const sendAuthInfo = () => {
+          try {
+            // 从cookie中获取用户的AccessKey和ClientName
+            const getCookie = (name: string) => {
+              const value = `; ${document.cookie}`;
+              const parts = value.split(`; ${name}=`);
+              if (parts.length === 2) return parts.pop()?.split(';').shift();
+              return null;
+            }
+            
+            const appAccessKey = getCookie('appAccessKey');
+            const clientName = getCookie('clientName');
+            
+            if (appAccessKey || clientName) {
+              console.log('Sending authentication info to WebSocket server');
+              websocket.send(JSON.stringify({
+                type: 'authenticate',
+                appAccessKey: appAccessKey || '',
+                clientName: clientName || ''
+              }));
+            } else {
+              console.log('No authentication info found in cookies');
+            }
+          } catch (error) {
+            console.error('Error sending authentication info:', error);
+          }
+        }
+        
+        // 延迟发送认证信息，确保WebSocket连接稳定
+        setTimeout(sendAuthInfo, 100);
       }
       
       websocket.onmessage = (event) => {
@@ -250,6 +293,17 @@ const ChatInterface: React.FC = () => {
       messageIdef.current.add(id)
     }
     
+    // Handle authentication responses
+    if (type === 'auth_success') {
+      console.log('Authentication successful');
+      return;
+    }
+    
+    if (type === 'auth_error') {
+      console.warn('Authentication failed:', data.message);
+      return;
+    }
+    
     // Handle shell command responses
     if (type === 'shell_output') {
       // Removed shell output handling
@@ -342,7 +396,9 @@ const ChatInterface: React.FC = () => {
         id: id || `assistant-${Date.now()}`,
         role: 'assistant',
         content: content || '',
-        timestamp: new Date(timestamp || Date.now())
+        timestamp: new Date(timestamp || Date.now()),
+        usage_metadata: data.usage_metadata,
+        charge_result: data.charge_result
       }
       
       // 使用函数式更新来避免消息重复
@@ -562,6 +618,8 @@ const ChatInterface: React.FC = () => {
                       tool_name={message.tool_name}
                       tool_status={message.tool_status}
                       input_params={message.input_params}
+                      usage_metadata={message.usage_metadata}
+                      charge_result={message.charge_result}
                     />
                   </motion.div>
                 ))}
