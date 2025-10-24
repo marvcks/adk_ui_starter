@@ -3,7 +3,7 @@
     "name": "MolPilot",
     "description": "计算化学智能体",
     "welcomeMessage": "请告诉我需要进行的计算化学任务",
-    "module": "molpilot_agent.agent",
+    "module": "MolPilot.agent",
     "rootAgent": "root_agent"
   },
   "ui": {

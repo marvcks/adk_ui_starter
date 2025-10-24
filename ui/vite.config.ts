@@ -8,7 +8,7 @@ const defaultHosts = ['localhost', '127.0.0.1', '0.0.0.0']
 
 // 读取 agent-config.json 配置
 let serverConfig = {
-  port: 50002,
+  port: 50001,
   allowedHosts: defaultHosts
 }
 
@@ -19,10 +19,10 @@ try {
   if (config.server) {
     // 合并默认主机和用户定义的额外主机
     const userHosts = config.server.allowedHosts || []
-    const allHosts = [...new Set([...defaultHosts, ...userHosts])]
+    const allHosts = Array.from(new Set([...defaultHosts, ...userHosts]))
     
     serverConfig = {
-      port: config.server.port || 50002,
+      port: config.server.port || 50001,
       allowedHosts: allHosts
     }
   }

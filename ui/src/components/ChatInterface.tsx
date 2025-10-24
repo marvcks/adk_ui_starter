@@ -517,7 +517,7 @@ const ChatInterface: React.FC = () => {
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="text-center">
                   <img 
-                    src="/src/assets/agent-raise-orca.png" 
+                    src="/agent-raise-orca.png" 
                     alt="ORCA Agent Logo" 
                     className="w-20 h-20 mx-auto mb-4 object-contain"
                   />
@@ -532,23 +532,23 @@ const ChatInterface: React.FC = () => {
                   <div className="grid grid-cols-2 gap-4 max-w-2xl mx-auto">
                     <button
                       onClick={() => handleQuickPrompt(
-                        "Inorganic / Organic",
-                        "使用ORCA进行有机化合物的几何优化计算，采用Hartree-Fock方法和def2-SVP基组..."
+                        "Deep Learning-based Functional",
+                        "对比不同泛函下水分子的偶极矩。使用PySCF计算B3LYP和Skala泛函下的偶极矩的差异，并与实验值进行对比。"
                       )}
                       className="p-4 text-left bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-lg transition-all duration-200 group"
                     >
                       <div className="font-medium text-gray-800 dark:text-gray-200 mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400">
-                        Inorganic / Organic
+                        Deep Learning-based Functional
                       </div>
                       <div className="text-xs text-gray-500 dark:text-gray-400 line-clamp-3">
-                        使用ORCA进行有机化合物的几何优化计算，采用Hartree-Fock方法和def2-SVP基组...
+                        对比不同泛函下水分子的偶极矩...
                       </div>
                     </button>
                     
                     <button
                       onClick={() => handleQuickPrompt(
                         "pKA",
-                        "使用B3LYP/6-31G*理论水平下的CPCM隐式溶剂模型计算乙酸在水中的pKa值..."
+                        "Calculate the pKa of acetic acid in water using two calculations at the B3LYP/6-31G* level of theorywith the CPCM implicit solvation model."
                       )}
                       className="p-4 text-left bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-lg transition-all duration-200 group"
                     >
@@ -556,14 +556,14 @@ const ChatInterface: React.FC = () => {
                         pKA
                       </div>
                       <div className="text-xs text-gray-500 dark:text-gray-400 line-clamp-3">
-                        使用B3LYP/6-31G*理论水平下的CPCM隐式溶剂模型计算乙酸在水中的pKa值...
+                        Calculate the pKa of acetic acid in water using ...
                       </div>
                     </button>
                     
                     <button
                       onClick={() => handleQuickPrompt(
                         "Carbocations",
-                        "计算碳正离子的稳定性和各种取代基的能力，使用DFT方法化结构..."
+                        "给定一个碳正离子生成反应: R-H -- R+ + H-。你的任务是使用ORCA计算R-H为甲烷时的碳正离子生成焓和吉布斯自由能。\n\n请使用DFT方法（B3LYP泛函和6-31G*基组）优化这些结构（氢负离子除外），并从输出文件中提取相关信息，计算每种R-H的碳正离子生成焓和吉布斯自由能。将结果（单位为kcal/mol）以Markdown表格形式报告。\n\n关于电荷和自旋多重度：分子电荷为0，自旋多重度为1；碳正离子电荷为1，自旋多重度为1；氢负离子电荷为-1，自旋多重度为1。"
                       )}
                       className="p-4 text-left bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-lg transition-all duration-200 group"
                     >
@@ -571,14 +571,14 @@ const ChatInterface: React.FC = () => {
                         Carbocations
                       </div>
                       <div className="text-xs text-gray-500 dark:text-gray-400 line-clamp-3">
-                        计算碳正离子的稳定性和各种取代基的能力，使用DFT方法优化结构...
+                        给定一个碳正离子生成反应: R-H -- R+ + H-。你的任务是...
                       </div>
                     </button>
                     
                     <button
                       onClick={() => handleQuickPrompt(
                         "Case Study",
-                        "研究隐式溶剂分子对丙氨酸分子振动频率的影响，比较气相和溶剂计算结果..."
+                        "研究添加隐式溶剂分子（水）如何改变丙氨酸分子的振动频率。使用ORCA比较气相计算和溶剂（CPCM）中的红外光谱计算结果。所有两个体系均使用PBE0/def2-TZVP方法。最后生成一份报告。"
                       )}
                       className="p-4 text-left bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-lg transition-all duration-200 group"
                     >

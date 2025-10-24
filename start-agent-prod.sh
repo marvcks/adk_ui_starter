@@ -14,11 +14,11 @@ mkdir -p output
 # 获取配置信息
 CONFIG_FILE="config/agent-config.json"
 if [ -f "$CONFIG_FILE" ]; then
-    FRONTEND_PORT=$(python -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('server',{}).get('port',50002))" 2>/dev/null || echo "50002")
+    FRONTEND_PORT=$(python -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('server',{}).get('port',50001))" 2>/dev/null || echo "50001")
     WEBSOCKET_PORT=$(python -c "import json; c=json.load(open('$CONFIG_FILE')); print(c.get('websocket',{}).get('port',8000))" 2>/dev/null || echo "8000")
     ALLOWED_HOSTS=$(python -c "import json; c=json.load(open('$CONFIG_FILE')); hosts=c.get('server',{}).get('allowedHosts',[]); print(', '.join(hosts) if hosts else 'None')" 2>/dev/null || echo "None")
 else
-    FRONTEND_PORT="50002"
+    FRONTEND_PORT="50001"
     WEBSOCKET_PORT="8000"
     ALLOWED_HOSTS="None"
 fi
@@ -80,4 +80,4 @@ echo ""
 trap "echo '停止所有服务...'; kill $WEBSOCKET_PID $FRONTEND_PID 2>/dev/null; exit" INT
 
 # 保持脚本运行
-wait 
+wait

@@ -730,12 +730,4 @@ async def execute_shell_command(command: str, context: ConnectionContext):
 
 
 if __name__ == "__main__":
-    print("🚀 启动重构后的 Agent WebSocket 服务器...")
-    print("📡 使用模块化架构，Session 模式运行 rootagent")
-    print("🌐 WebSocket 端点: ws://localhost:8000/ws")
-    print("🏗️  新架构特性:")
-    print("   - 模块化设计")
-    print("   - 状态机管理")
-    print("   - 事件驱动架构")
-    print("   - 服务层抽象")
     uvicorn.run(app, host="0.0.0.0", port=8000)
