@@ -215,14 +215,31 @@ export const MemoizedMessage = React.memo<MessageProps>(({
           {charge_result && (
             <div className={`flex items-center gap-2 text-xs px-2 py-1 rounded ${
               charge_result.success 
-                ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800'
+                ? ((charge_result.photon_amount || 0) > 0
+                    ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800'
+                    : (charge_result.message?.includes('累积')
+                        ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                        : 'bg-gray-50 dark:bg-gray-900/20 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-800'))
                 : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800'
             }`}>
               <span className={`w-2 h-2 rounded-full ${
-                charge_result.success ? 'bg-green-500' : 'bg-red-500'
+                charge_result.success 
+                  ? ((charge_result.photon_amount || 0) > 0
+                      ? 'bg-green-500'
+                      : (charge_result.message?.includes('累积')
+                          ? 'bg-blue-500'
+                          : 'bg-gray-500'))
+                  : 'bg-red-500'
               }`}></span>
               <span className="font-medium">
-                {charge_result.success ? '✓ 收费成功' : '✗ 收费失败'}
+                {charge_result.success 
+                  ? ((charge_result.photon_amount || 0) > 0 
+                      ? '✓ 收费成功' 
+                      : (charge_result.message?.includes('累积') 
+                          ? '⏳ 费用累积中' 
+                          : '✓ 免费使用'))
+                  : '✗ 收费失败'
+                }
               </span>
               <span className="text-gray-500 dark:text-gray-400">|</span>
               <span>

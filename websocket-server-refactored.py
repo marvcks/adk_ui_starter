@@ -29,6 +29,10 @@ from google.adk.sessions import InMemorySessionService
 # Import configuration
 from config.agent_config import agentconfig
 
+# Import photon charging service
+from services.photon_service import PhotonService, init_photon_service, get_photon_service
+from config.photon_config import PHOTON_CONFIG, CHARGING_ENABLED, FREE_TOKEN_QUOTA
+
 # Import new modules - use absolute imports
 from core.message_types import MessageType, WebSocketMessage
 from core.state_machine import SessionState, StateMachine, SessionStateManager
@@ -41,6 +45,13 @@ rootagent = agentconfig.get_agent()
 # 配置日志
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# 初始化光子收费服务
+if CHARGING_ENABLED:
+    init_photon_service(PHOTON_CONFIG)
+    logger.info("光子收费服务已启用")
+else:
+    logger.info("光子收费服务已禁用")
 
 
 @dataclass
@@ -82,6 +93,10 @@ class ConnectionContext:
         }
         # 为每个连接生成唯一的user_id
         self.user_id = f"user_{uuid.uuid4().hex[:8]}"
+        # 用户认证信息
+        self.app_access_key: Optional[str] = None
+        self.client_name: Optional[str] = None
+        self.is_authenticated: bool = False
         # 状态机管理器
         self.state_manager = SessionStateManager()
         # 事件处理器
@@ -307,12 +322,23 @@ class SessionManager:
             )
             
             if result['success']:
-                # 发送助手回复 - 使用简单格式，与前端期望一致
-                await context.websocket.send_json({
+                # 构建响应消息，包含完整信息
+                response_message = {
                     "type": "assistant",
                     "content": result['response']['content'],
                     "session_id": context.current_session_id
-                })
+                }
+                
+                # 添加token使用信息
+                if 'usage_metadata' in result['response']:
+                    response_message["usage_metadata"] = result['response']['usage_metadata']
+                
+                # 添加收费结果信息
+                if 'charge_result' in result:
+                    response_message["charge_result"] = result['charge_result']
+                
+                # 发送助手回复
+                await context.websocket.send_json(response_message)
                 
                 # 更新会话信息
                 session.message_count = context.message_service.get_message_count(context.current_session_id)
@@ -464,6 +490,28 @@ async def websocket_endpoint(websocket: WebSocket):
                     await websocket.send_json({
                         "type": "error",
                         "content": "删除会话失败"
+                    })
+                    
+            elif message_type == "authenticate":
+                # 处理用户认证信息
+                app_access_key = data.get("appAccessKey", "").strip()
+                client_name = data.get("clientName", "").strip()
+                
+                if app_access_key:
+                    context.app_access_key = app_access_key
+                    context.client_name = client_name or "WebClient"
+                    context.is_authenticated = True
+                    logger.info(f"用户 {context.user_id} 认证成功，AccessKey: {app_access_key[:8]}...")
+                    
+                    await websocket.send_json({
+                        "type": "auth_success",
+                        "content": "认证成功"
+                    })
+                else:
+                    logger.warning(f"用户 {context.user_id} 认证失败：缺少AccessKey")
+                    await websocket.send_json({
+                        "type": "auth_error",
+                        "content": "认证失败：缺少AccessKey"
                     })
                     
             elif message_type == "shell_command":

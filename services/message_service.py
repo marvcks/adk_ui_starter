@@ -5,7 +5,7 @@ Handles message validation, processing, and response generation
 
 import asyncio
 import logging
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, AsyncGenerator
 from datetime import datetime
 import uuid
 import json
@@ -13,13 +13,16 @@ import json
 from google.adk import Runner
 from google.genai import types
 
-# Fix import paths - use absolute imports
-from core.message_types import (
-    MessageType, MessageStatus, Message, UserMessage, 
-    AssistantMessage, ToolMessage, SystemMessage
-)
 from core.event_handlers import EventProcessor, EventContext, EventType
 from core.state_machine import SessionState, StateMachine
+from config.photon_config import CHARGING_ENABLED
+from services.photon_service import get_photon_service
+
+# Import message types from core module
+from core.message_types import (
+    MessageType, MessageStatus, Message, UserMessage,
+    AssistantMessage, ToolMessage, SystemMessage
+)
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +95,15 @@ class MessageService:
             logger.info(f"助手消息已保存到会话 {session_id}: {response.get('content', '')[:50]}...")
             logger.info(f"会话 {session_id} 当前消息数量: {len(self.message_history[session_id])}")
             
+            # 执行光子收费（如果启用）- 参考原始代码的收费逻辑
+            charge_result = None
+            if CHARGING_ENABLED:
+                charge_result = await self._process_photon_charging(
+                    response.get('usage_metadata', {}),
+                    response.get('tool_calls', []),
+                    context
+                )
+            
             # Record completion event
             await self.event_processor.process_event(
                 EventType.RESPONSE_GENERATED,
@@ -104,7 +116,8 @@ class MessageService:
                 'message_id': message_id,
                 'response': response,
                 'user_message': user_message.to_dict(),
-                'assistant_message': assistant_message.to_dict()
+                'assistant_message': assistant_message.to_dict(),
+                'charge_result': charge_result  # 添加收费结果
             }
             
         except Exception as e:
@@ -181,9 +194,14 @@ class MessageService:
         # Extract final response
         final_response = self._extract_final_response(all_events)
         
+        # Extract token usage information - 参考原始代码的token提取逻辑
+        usage_metadata = self._extract_usage_metadata(all_events)
+        
         return {
             'content': final_response,
             'tool_calls': tool_calls,
+            'usage_metadata': usage_metadata,  # 添加token使用信息
+            'events': all_events,  # 保留事件信息用于后续处理
             'events_count': len(all_events),
             'long_running_tool_ids': list(long_running_tool_ids)  # 返回长期运行的工具ID列表
         }
@@ -363,6 +381,126 @@ class MessageService:
         
         return "No response generated"
     
+    def _extract_usage_metadata(self, events: List[Any]) -> Dict[str, int]:
+        """Extract token usage metadata from events - 参考原始代码的token提取逻辑"""
+        usage_metadata = {}
+        
+        for event in events:
+            # 检查事件是否有 usage_metadata 属性
+            if hasattr(event, 'usage_metadata') and event.usage_metadata:
+                logger.info(f"Found usage_metadata in event: {event.usage_metadata}")
+                try:
+                    # 尝试标准字段名
+                    usage_metadata = {
+                        'prompt_tokens': getattr(event.usage_metadata, 'prompt_token_count', 0),
+                        'candidates_tokens': getattr(event.usage_metadata, 'candidates_token_count', 0),
+                        'total_tokens': getattr(event.usage_metadata, 'total_token_count', 0)
+                    }
+                    logger.info(f"Extracted usage_metadata: {usage_metadata}")
+                    break
+                except Exception as e:
+                    logger.error(f"Error extracting usage_metadata: {e}")
+                    # 尝试其他可能的字段名
+                    try:
+                        usage_metadata = {
+                            'prompt_tokens': getattr(event.usage_metadata, 'prompt_tokens', 0),
+                            'candidates_tokens': getattr(event.usage_metadata, 'candidates_tokens', 0),
+                            'total_tokens': getattr(event.usage_metadata, 'total_tokens', 0)
+                        }
+                        logger.info(f"Extracted usage_metadata (fallback): {usage_metadata}")
+                        break
+                    except Exception as e2:
+                        logger.error(f"Fallback extraction failed: {e2}")
+                        logger.info(f"usage_metadata attributes: {dir(event.usage_metadata)}")
+                        logger.info(f"usage_metadata content: {event.usage_metadata}")
+            
+            # 检查是否有 response 对象包含 usage_metadata
+            if hasattr(event, 'response') and event.response:
+                if hasattr(event.response, 'usage_metadata') and event.response.usage_metadata:
+                    logger.info(f"Found usage_metadata in response: {event.response.usage_metadata}")
+                    try:
+                        usage_metadata = {
+                            'prompt_tokens': getattr(event.response.usage_metadata, 'prompt_token_count', 0),
+                            'candidates_tokens': getattr(event.response.usage_metadata, 'candidates_token_count', 0),
+                            'total_tokens': getattr(event.response.usage_metadata, 'total_token_count', 0)
+                        }
+                        logger.info(f"Extracted usage_metadata from response: {usage_metadata}")
+                        break
+                    except Exception as e:
+                        logger.error(f"Error extracting usage_metadata from response: {e}")
+        
+        return usage_metadata
+    
+    async def _process_photon_charging(self, 
+                                     usage_metadata: Dict[str, int], 
+                                     tool_calls: List[Dict], 
+                                     context: EventContext) -> Optional[Dict[str, Any]]:
+        """处理光子扣费 - 参考原始代码的收费逻辑"""
+        photon_service = get_photon_service()
+        if not photon_service:
+            logger.warning("光子服务未初始化，跳过收费")
+            return None
+        
+        try:
+            # 获取输入输出token数量
+            input_tokens = usage_metadata.get('prompt_tokens', 0)
+            output_tokens = usage_metadata.get('candidates_tokens', 0)
+            
+            # 计算工具调用次数（从当前会话的工具调用中统计）
+            tool_call_count = len(tool_calls)
+            
+            # 如果从消息历史中统计工具调用次数（参考原始代码）
+            if context.session_id in self.message_history:
+                # 统计当前会话中最后一次用户消息后的工具调用次数
+                for msg in reversed(self.message_history[context.session_id]):
+                    if isinstance(msg, UserMessage):
+                        break
+                    if isinstance(msg, ToolMessage):
+                        tool_call_count += 1
+            
+            if input_tokens > 0 or output_tokens > 0 or tool_call_count > 0:
+                logger.info(f"Processing photon charge - Input tokens: {input_tokens}, Output tokens: {output_tokens}, Tool calls: {tool_call_count}")
+                
+                # 执行收费
+                charge_result = await photon_service.charge_photon(
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                    tool_calls=tool_call_count,
+                    request=None,  # WebSocket 连接中无法直接获取 Request 对象
+                    context=context  # 传递事件上下文
+                )
+                
+                # 格式化收费结果
+                result = {
+                    "success": charge_result.success,
+                    "code": charge_result.code,
+                    "message": charge_result.message,
+                    "biz_no": charge_result.biz_no,
+                    "photon_amount": charge_result.photon_amount,
+                    "rmb_amount": charge_result.rmb_amount
+                }
+                
+                if charge_result.success:
+                    logger.info(f"Photon charge successful: {charge_result.message}")
+                else:
+                    logger.warning(f"Photon charge failed: {charge_result.message}")
+                
+                return result
+            else:
+                logger.info("No tokens or tool calls to charge")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error during photon charging: {e}")
+            return {
+                "success": False,
+                "code": -1,
+                "message": f"收费过程中发生错误: {str(e)}",
+                "biz_no": None,
+                "photon_amount": 0,
+                "rmb_amount": 0.0
+            }
+    
     def get_message_history(self, session_id: str) -> List[Dict[str, Any]]:
         """Get message history for a session"""
         if session_id not in self.message_history:
@@ -449,4 +587,4 @@ class MessageService:
             content=content,
             level=level,
             code=code
-        ) 
+        )

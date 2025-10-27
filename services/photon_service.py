@@ -201,11 +201,18 @@ class PhotonService:
                 charge_amount, rmb_amount = self.calculate_charge_amount(input_tokens, output_tokens, tool_calls)
             
             if charge_amount <= 0:
-                logger.info(f"Input tokens: {input_tokens}, Output tokens: {output_tokens}, Tool calls: {tool_calls} results in 0 charge, skipping")
+                # 检查是否有累积费用
+                if self.accumulated_cost > 0:
+                    message = f"费用已累积 {self.accumulated_cost:.4f}元，待下次结算"
+                    logger.info(f"Input tokens: {input_tokens}, Output tokens: {output_tokens}, Tool calls: {tool_calls} results in 0 charge, accumulated cost: {self.accumulated_cost:.4f}")
+                else:
+                    message = "免费使用，无需扣费"
+                    logger.info(f"Input tokens: {input_tokens}, Output tokens: {output_tokens}, Tool calls: {tool_calls} results in 0 charge, no cost")
+                
                 return PhotonChargeResult(
                     success=True,
                     code=0,
-                    message="免费使用，无需扣费",
+                    message=message,
                     photon_amount=0,
                     rmb_amount=0.0
                 )
