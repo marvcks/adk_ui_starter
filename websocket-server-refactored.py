@@ -16,11 +16,12 @@ import uuid
 import subprocess
 import shlex
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 import uvicorn
+import tempfile
 
 from google.adk import Runner
 from google.adk.sessions import InMemorySessionService
@@ -580,6 +581,109 @@ async def get_config():
         "files": agentconfig.get_files_config(),
         "websocket": agentconfig.get_websocket_config()
     })
+
+
+@app.post("/api/upload")
+async def upload_file(file: UploadFile = File(...)):
+    """文件上传API端点"""
+    try:
+        # 验证文件类型
+        allowed_extensions = {'.xyz', '.mol', '.sdf', '.pdb', '.txt', '.json', '.csv'}
+        file_extension = '.' + file.filename.split('.')[-1].lower() if file.filename and '.' in file.filename else ''
+        
+        if file_extension not in allowed_extensions:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"不支持的文件类型。支持的格式: {', '.join(allowed_extensions)}"
+            )
+        
+        # 验证文件大小 (10MB限制)
+        max_size = 10 * 1024 * 1024  # 10MB
+        file_content = await file.read()
+        if len(file_content) > max_size:
+            raise HTTPException(
+                status_code=400,
+                detail="文件大小超过10MB限制"
+            )
+        
+        # 重置文件指针
+        await file.seek(0)
+        
+        # 创建临时文件
+        with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
+            temp_file.write(file_content)
+            temp_file_path = temp_file.name
+        
+        try:
+            # 使用HTTP存储服务上传到bohr
+            from dp.agent.server.storage.http_storage import HTTPStorage
+            
+            # 初始化HTTP存储
+            storage = HTTPStorage()
+            
+            # 生成唯一的文件键
+            file_key = f"uploads/{uuid.uuid4()}/{file.filename}"
+            
+            # 上传文件
+            upload_result = storage._upload(file_key, temp_file_path)
+            
+            # 构建完整的URL
+            if upload_result:
+                # 如果返回的是相对路径，构建完整URL
+                if not upload_result.startswith('http'):
+                    upload_url = f"https://{upload_result}"
+                else:
+                    upload_url = upload_result
+                
+                logger.info(f"文件上传成功: {file.filename} -> {upload_url}")
+                
+                return JSONResponse(content={
+                    "success": True,
+                    "filename": file.filename,
+                    "url": upload_url,
+                    "key": file_key,
+                    "size": len(file_content),
+                    "type": file_extension
+                })
+            else:
+                raise HTTPException(status_code=500, detail="上传到存储服务失败")
+                
+        finally:
+            # 清理临时文件
+            try:
+                os.unlink(temp_file_path)
+            except:
+                pass
+                
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"文件上传错误: {e}")
+        raise HTTPException(status_code=500, detail=f"上传失败: {str(e)}")
+
+
+@app.get("/api/upload/status")
+async def get_upload_status():
+    """获取上传服务状态"""
+    try:
+        from dp.agent.server.storage.http_storage import HTTPStorage
+        storage = HTTPStorage()
+        
+        return JSONResponse(content={
+            "success": True,
+            "status": "available",
+            "message": "上传服务正常运行"
+        })
+    except Exception as e:
+        logger.error(f"检查上传状态错误: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "status": "error",
+                "message": f"上传服务不可用: {str(e)}"
+            }
+        )
 
 
 # Shell 命令执行相关代码保持不变

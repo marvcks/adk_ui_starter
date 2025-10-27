@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { Send, Menu, ChevronLeft } from 'lucide-react'
+import { Send, Menu, ChevronLeft, Paperclip } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import SessionList from './SessionList'
 import { useAgentConfig } from '../hooks/useAgentConfig'
 import { MessageAnimation, LoadingDots } from './MessageAnimation'
 import { MemoizedMessage } from './MemoizedMessage'
+import FileUpload from './FileUpload'
 import axios from 'axios'
 import { Bot } from 'lucide-react'
 
@@ -49,6 +50,15 @@ const ChatInterface: React.FC = () => {
   const [showLoadingDelay, setShowLoadingDelay] = useState(false)
   const [isCreatingSession, setIsCreatingSession] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [showFileUpload, setShowFileUpload] = useState(false)
+  
+  // 添加上传文件信息的状态
+  const [uploadedFiles, setUploadedFiles] = useState<Array<{
+    name: string;
+    size: number;
+    url: string;
+  }>>([])
+  
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const messageIdef = useRef<Set<string>>(new Set())
@@ -250,10 +260,25 @@ const ChatInterface: React.FC = () => {
       return
     }
 
+    // 构建发送给服务器的消息内容，包含用户输入和文件信息
+    let serverMessageContent = input
+    
+    // 如果有上传的文件，追加文件信息到服务器消息
+    if (uploadedFiles.length > 0) {
+      const fileInfos = uploadedFiles.map(file => 
+        `已上传文件: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)\n文件URL: ${file.url}`
+      ).join('\n\n')
+      
+      serverMessageContent = serverMessageContent + '\n\n' + fileInfos
+    }
+
+    // 显示在聊天界面的消息内容，只包含用户输入，不包含文件信息
+    const displayMessageContent = input
+
     const newMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: input,
+      content: displayMessageContent,
       timestamp: new Date()
     }
 
@@ -261,13 +286,19 @@ const ChatInterface: React.FC = () => {
     setInput('')
     setIsLoading(true)
     
+    // 清空已上传的文件列表
+    setUploadedFiles([])
+    
+    // 隐藏文件上传组件
+    setShowFileUpload(false)
+    
     // 发送消息后立即滚动到底部
     scrollToBottom()
 
-    // Send message through WebSocket
+    // Send message through WebSocket (包含文件信息)
     ws.send(JSON.stringify({
       type: 'message',
-      content: input
+      content: serverMessageContent
     }))
   }
 
@@ -434,6 +465,26 @@ const ChatInterface: React.FC = () => {
   const handleQuickPrompt = (title: string, content: string) => {
     setInput(content)
     handleSend()
+  }
+
+  const handleFileUpload = (file: File, uploadUrl?: string) => {
+    // 保存上传的文件信息，不直接写入输入框
+    if (uploadUrl) {
+      setUploadedFiles(prev => [...prev, {
+        name: file.name,
+        size: file.size,
+        url: uploadUrl
+      }])
+    }
+    // 不要立即隐藏FileUpload组件，让用户看到上传成功的文件卡片
+    // setShowFileUpload(false)
+  }
+
+  const handleUploadComplete = (result: any) => {
+    if (result.success) {
+      // 可以在这里添加成功提示或其他处理
+      console.log('文件上传成功:', result)
+    }
   }
 
   return (
@@ -654,7 +705,41 @@ const ChatInterface: React.FC = () => {
         {/* Input Area */}
         <div className="border-t border-gray-200 dark:border-gray-700 glass-premium p-4">
           <div className="max-w-4xl mx-auto">
+            {/* File Upload Panel */}
+            <AnimatePresence>
+              {showFileUpload && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="mb-4"
+                >
+                  <FileUpload
+                    onFileUpload={handleFileUpload}
+                    onUploadComplete={handleUploadComplete}
+                    acceptedTypes={['.xyz', '.mol', '.sdf', '.pdb', '.txt', '.json', '.csv']}
+                    maxSize={10}
+                    className="border border-gray-200 dark:border-gray-600 rounded-xl"
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+            
             <div className="flex gap-3">
+              <div className="flex items-end">
+                <button
+                  onClick={() => setShowFileUpload(!showFileUpload)}
+                  className={`p-2 rounded-lg transition-colors ${
+                    showFileUpload 
+                      ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' 
+                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                  }`}
+                  title="上传文件"
+                >
+                  <Paperclip className="w-5 h-5" />
+                </button>
+              </div>
               <textarea
                 ref={inputRef}
                 value={input}
