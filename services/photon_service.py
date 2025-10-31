@@ -30,7 +30,7 @@ class PhotonChargeConfig:
     output_token_rate: float = 0.03  # 输出token费率：0.03元/千token
     tool_call_cost: int = 1  # 每次工具调用费用：1光子
     min_charge: int = 1  # 最小收费光子数
-    max_charge: int = 1000  # 最大收费光子数
+    max_charge: Optional[int] = None  # 最大收费光子数（已废弃，不再使用）
     photon_to_rmb_rate: float = 0.01  # 光子到人民币的换算率 (1光子 = 0.01元)
 
 
@@ -116,7 +116,7 @@ class PhotonService:
         Args:
             input_tokens: 输入token数量
             output_tokens: 输出token数量
-            tool_calls: 工具调用次数
+            tool_calls: 工具调用次数（当前不计费）
             
         Returns:
             tuple[int, float]: (光子数量, 人民币金额)
@@ -124,14 +124,24 @@ class PhotonService:
         if input_tokens <= 0 and output_tokens <= 0 and tool_calls <= 0:
             return 0, 0.0
         
-        # 计算输入token费用（0.001元/千token）
-        input_cost = (input_tokens / 1000) * self.config.input_token_rate
+        # 分档费率（按输入token规模选择）
+        # ≤32k：输入 0.006，输出 0.024；≤128k：输入 0.01，输出 0.04；≤256k：输入 0.015，输出 0.06
+        if input_tokens <= 32_000:
+            input_rate = 0.006
+            output_rate = 0.024
+        elif input_tokens <= 128_000:
+            input_rate = 0.01
+            output_rate = 0.04
+        else:
+            input_rate = 0.015
+            output_rate = 0.06
+
+        # 计算输入/输出token费用（元/千token）
+        input_cost = (input_tokens / 1000) * input_rate
+        output_cost = (output_tokens / 1000) * output_rate
         
-        # 计算输出token费用（0.03元/千token）
-        output_cost = (output_tokens / 1000) * self.config.output_token_rate
-        
-        # 计算工具调用费用（1光子/次调用）
-        tool_cost = tool_calls * self.config.tool_call_cost * self.config.photon_to_rmb_rate
+        # 当前不对工具调用计费
+        tool_cost = 0.0
         
         # 总费用（以元为单位）
         total_cost_rmb = input_cost + output_cost + tool_cost
@@ -151,7 +161,7 @@ class PhotonService:
         # 应用最小和最大收费限制
         if photons_to_charge > 0:
             photons_to_charge = max(self.config.min_charge, photons_to_charge)
-            photons_to_charge = min(self.config.max_charge, photons_to_charge)
+            # 不再限制最大收费，避免大请求被截断
         
         # 计算实际人民币金额
         actual_rmb_amount = photons_to_charge * self.config.photon_to_rmb_rate

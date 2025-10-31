@@ -25,7 +25,6 @@ PHOTON_CONFIG = PhotonChargeConfig(
     output_token_rate=float(os.getenv("PHOTON_OUTPUT_TOKEN_RATE", "0.03")),  # 输出token费率：0.03元/千token
     tool_call_cost=int(os.getenv("PHOTON_TOOL_CALL_COST", "1")),  # 每次工具调用费用：1光子
     min_charge=int(os.getenv("PHOTON_MIN_CHARGE", "1")),  # 最小收费光子数
-    max_charge=int(os.getenv("PHOTON_MAX_CHARGE", "1000")),  # 最大收费光子数
 )
 
 # 收费开关配置
