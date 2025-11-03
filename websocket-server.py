@@ -42,7 +42,7 @@ rootagent = agentconfig.get_agent()
 # 配置日志
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
+logging.getLogger("google_adk.google.adk.tools.base_authenticated_tool").setLevel(logging.ERROR)
 # 初始化光子收费服务
 if CHARGING_ENABLED:
     init_photon_service(PHOTON_CONFIG)
@@ -365,14 +365,14 @@ class SessionManager:
                 logger.info(f"Received event: {type(event).__name__}")
                 
                 # 检查事件是否包含 usage_metadata
-                if hasattr(event, 'usage_metadata') and event.usage_metadata:
-                    logger.info(f"Found usage_metadata in event: {event.usage_metadata}")
+                if hasattr(event, 'usageMetadata') and event.usageMetadata:
+                    logger.info(f"Found usageMetadata in event: {event.usageMetadata}")
                     try:
-                        # Google ADK 的 usage_metadata 通常包含这些字段
+                        # Google ADK 的 usageMetadata 通常包含这些字段
                         usage_metadata = {
-                            'prompt_tokens': getattr(event.usage_metadata, 'prompt_token_count', 0),
-                            'candidates_tokens': getattr(event.usage_metadata, 'candidates_token_count', 0),
-                            'total_tokens': getattr(event.usage_metadata, 'total_token_count', 0)
+                            'prompt_tokens': getattr(event.usageMetadata, 'candidatesTokenCount', 0),
+                            'candidates_tokens': getattr(event.usageMetadata, 'candidatesTokenCount', 0),
+                            'total_tokens': getattr(event.usageMetadata, 'totalTokenCount', 0)
                         }
                         logger.info(f"Extracted usage_metadata: {usage_metadata}")
                     except Exception as e:
@@ -390,19 +390,19 @@ class SessionManager:
                             logger.info(f"usage_metadata attributes: {dir(event.usage_metadata)}")
                             logger.info(f"usage_metadata content: {event.usage_metadata}")
                 
-                # 检查是否有 response 对象包含 usage_metadata
-                if hasattr(event, 'response') and event.response:
-                    if hasattr(event.response, 'usage_metadata') and event.response.usage_metadata:
-                        logger.info(f"Found usage_metadata in response: {event.response.usage_metadata}")
-                        try:
-                            usage_metadata = {
-                                'prompt_tokens': getattr(event.response.usage_metadata, 'prompt_token_count', 0),
-                                'candidates_tokens': getattr(event.response.usage_metadata, 'candidates_token_count', 0),
-                                'total_tokens': getattr(event.response.usage_metadata, 'total_token_count', 0)
-                            }
-                            logger.info(f"Extracted usage_metadata from response: {usage_metadata}")
-                        except Exception as e:
-                            logger.error(f"Error extracting usage_metadata from response: {e}")
+                # # 检查是否有 response 对象包含 usage_metadata
+                # if hasattr(event, 'response') and event.response:
+                #     if hasattr(event.response, 'usage_metadata') and event.response.usage_metadata:
+                #         logger.info(f"Found usage_metadata in response: {event.response.usage_metadata}")
+                #         try:
+                #             usage_metadata = {
+                #                 'prompt_tokens': getattr(event.response.usage_metadata, 'prompt_token_count', 0),
+                #                 'candidates_tokens': getattr(event.response.usage_metadata, 'candidates_token_count', 0),
+                #                 'total_tokens': getattr(event.response.usage_metadata, 'total_token_count', 0)
+                #             }
+                #             logger.info(f"Extracted usage_metadata from response: {usage_metadata}")
+                #         except Exception as e:
+                #             logger.error(f"Error extracting usage_metadata from response: {e}")
                 
                 # 检查事件中的工具调用（按照官方示例）
                 if hasattr(event, 'content') and event.content and hasattr(event.content, 'parts'):

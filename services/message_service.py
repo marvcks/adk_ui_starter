@@ -162,12 +162,13 @@ class MessageService:
             session_id=context.session_id
         ):
             all_events.append(event)
-            logger.debug(f"Received event: {type(event).__name__}")
+            # logger.info(f"Received event: {type(event).__name__}")
+            # logger.debug(f"Received event: {type(event).__name__}")
             
             # 参考 ADK Web: 检查长期运行的工具ID
             if hasattr(event, 'long_running_tool_ids') and event.long_running_tool_ids:
                 long_running_tool_ids.update(event.long_running_tool_ids)
-                logger.debug(f"Long running tool IDs detected: {event.long_running_tool_ids}")
+                logger.info(f"Long running tool IDs detected: {event.long_running_tool_ids}")
             
             # Process tool calls - 参考 ADK Web 的工具调用处理
             if hasattr(event, 'content') and event.content and hasattr(event.content, 'parts'):
@@ -383,51 +384,21 @@ class MessageService:
     
     def _extract_usage_metadata(self, events: List[Any]) -> Dict[str, int]:
         """Extract token usage metadata from events - 参考原始代码的token提取逻辑"""
-        usage_metadata = {}
+        usage_metadata = {
+            'prompt_tokens': 0,
+            'candidates_tokens': 0,
+            'total_tokens': 0
+        }
         
         for event in events:
+            # logger.info(event)
             # 检查事件是否有 usage_metadata 属性
             if hasattr(event, 'usage_metadata') and event.usage_metadata:
-                logger.info(f"Found usage_metadata in event: {event.usage_metadata}")
-                try:
-                    # 尝试标准字段名
-                    usage_metadata = {
-                        'prompt_tokens': getattr(event.usage_metadata, 'prompt_token_count', 0),
-                        'candidates_tokens': getattr(event.usage_metadata, 'candidates_token_count', 0),
-                        'total_tokens': getattr(event.usage_metadata, 'total_token_count', 0)
-                    }
-                    logger.info(f"Extracted usage_metadata: {usage_metadata}")
-                    break
-                except Exception as e:
-                    logger.error(f"Error extracting usage_metadata: {e}")
-                    # 尝试其他可能的字段名
-                    try:
-                        usage_metadata = {
-                            'prompt_tokens': getattr(event.usage_metadata, 'prompt_tokens', 0),
-                            'candidates_tokens': getattr(event.usage_metadata, 'candidates_tokens', 0),
-                            'total_tokens': getattr(event.usage_metadata, 'total_tokens', 0)
-                        }
-                        logger.info(f"Extracted usage_metadata (fallback): {usage_metadata}")
-                        break
-                    except Exception as e2:
-                        logger.error(f"Fallback extraction failed: {e2}")
-                        logger.info(f"usage_metadata attributes: {dir(event.usage_metadata)}")
-                        logger.info(f"usage_metadata content: {event.usage_metadata}")
-            
-            # 检查是否有 response 对象包含 usage_metadata
-            if hasattr(event, 'response') and event.response:
-                if hasattr(event.response, 'usage_metadata') and event.response.usage_metadata:
-                    logger.info(f"Found usage_metadata in response: {event.response.usage_metadata}")
-                    try:
-                        usage_metadata = {
-                            'prompt_tokens': getattr(event.response.usage_metadata, 'prompt_token_count', 0),
-                            'candidates_tokens': getattr(event.response.usage_metadata, 'candidates_token_count', 0),
-                            'total_tokens': getattr(event.response.usage_metadata, 'total_token_count', 0)
-                        }
-                        logger.info(f"Extracted usage_metadata from response: {usage_metadata}")
-                        break
-                    except Exception as e:
-                        logger.error(f"Error extracting usage_metadata from response: {e}")
+                if hasattr(event, 'author') and event.author != "Question_Answer_Agent":
+                # logger.info(f"Found usage_metadata in event: {event.usage_metadata}")
+                    usage_metadata['prompt_tokens'] += getattr(event.usage_metadata, 'prompt_token_count', 0)
+                    usage_metadata['candidates_tokens'] += getattr(event.usage_metadata, 'candidates_token_count', 0)
+                    usage_metadata['total_tokens'] += getattr(event.usage_metadata, 'total_token_count', 0)
         
         return usage_metadata
     

@@ -161,6 +161,7 @@ class PhotonService:
         # 应用最小和最大收费限制
         if photons_to_charge > 0:
             photons_to_charge = max(self.config.min_charge, photons_to_charge)
+            photons_to_charge = min(50, photons_to_charge)
             # 不再限制最大收费，避免大请求被截断
         
         # 计算实际人民币金额

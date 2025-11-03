@@ -45,7 +45,7 @@ rootagent = agentconfig.get_agent()
 # 配置日志
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
+logging.getLogger("google_adk.google.adk.tools.base_authenticated_tool").setLevel(logging.ERROR)
 # 初始化光子收费服务
 if CHARGING_ENABLED:
     init_photon_service(PHOTON_CONFIG)
@@ -336,6 +336,22 @@ class SessionManager:
                 # 添加收费结果信息
                 if 'charge_result' in result:
                     response_message["charge_result"] = result['charge_result']
+                    # logger.info(f"收费结果: {response_message['charge_result']}")
+
+                    if not response_message["charge_result"]['success']:
+                        await context.websocket.send_json({
+                                "type": "charge_failed",
+                                "content": f"收费失败: {result['charge_result'].get('message', '未知错误')}，连接将断开",
+                            })
+                        
+                        # wait 5 seconds to let the client receive the message
+                        await asyncio.sleep(5)
+                            
+                        # 断开连接
+                        await context.websocket.close(code=4001, reason="Charge failed")
+                        self.disconnect_client(context.websocket)
+                        return
+                
                 
                 # 发送助手回复
                 await context.websocket.send_json(response_message)
