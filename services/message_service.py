@@ -44,7 +44,8 @@ class MessageService:
                                  session_id: str, 
                                  user_id: str, 
                                  content: str,
-                                 runner: Runner) -> Dict[str, Any]:
+                                 runner: Runner,
+                                 connection_context=None) -> Dict[str, Any]:
         """Process a user message and generate response"""
         
         # Create message context
@@ -80,7 +81,7 @@ class MessageService:
             logger.info(f"会话 {session_id} 当前消息数量: {len(self.message_history[session_id])}")
             
             # Process with agent
-            response = await self._process_with_agent(runner, content, context)
+            response = await self._process_with_agent(runner, content, context, connection_context)
             
             # Create assistant message
             assistant_message = AssistantMessage(
@@ -101,7 +102,8 @@ class MessageService:
                 charge_result = await self._process_photon_charging(
                     response.get('usage_metadata', {}),
                     response.get('tool_calls', []),
-                    context
+                    context,
+                    connection_context
                 )
             
             # Record completion event
@@ -139,7 +141,8 @@ class MessageService:
     async def _process_with_agent(self, 
                                  runner: Runner, 
                                  content: str, 
-                                 context: EventContext) -> Dict[str, Any]:
+                                 context: EventContext,
+                                 connection_context=None) -> Dict[str, Any]:
         """Process message with the agent using Google ADK - 参考 ADK Web 实现"""
         
         # Create content for agent
@@ -405,7 +408,8 @@ class MessageService:
     async def _process_photon_charging(self, 
                                      usage_metadata: Dict[str, int], 
                                      tool_calls: List[Dict], 
-                                     context: EventContext) -> Optional[Dict[str, Any]]:
+                                     context: EventContext,
+                                     connection_context=None) -> Optional[Dict[str, Any]]:
         """处理光子扣费 - 参考原始代码的收费逻辑"""
         photon_service = get_photon_service()
         if not photon_service:
@@ -438,7 +442,7 @@ class MessageService:
                     output_tokens=output_tokens,
                     tool_calls=tool_call_count,
                     request=None,  # WebSocket 连接中无法直接获取 Request 对象
-                    context=context  # 传递事件上下文
+                    context=connection_context  # 传递 ConnectionContext 而不是 EventContext
                 )
                 
                 # 格式化收费结果

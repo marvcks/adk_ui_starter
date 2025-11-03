@@ -109,6 +109,18 @@ const ChatInterface: React.FC = () => {
       }
       
       setConnectionStatus('connecting')
+      
+      // 从cookie中获取用户的AccessKey和ClientName
+      const getCookie = (name: string) => {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop()?.split(';').shift();
+        return null;
+      }
+      
+      const appAccessKey = getCookie('appAccessKey');
+      const clientName = getCookie('clientName');
+      
       // 动态获取 WebSocket URL，支持代理和远程访问
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
       const host = window.location.hostname
@@ -121,6 +133,15 @@ const ChatInterface: React.FC = () => {
       }
       wsUrl += '/ws'
       
+      // 如果有认证信息，添加到查询参数中
+      if (appAccessKey || clientName) {
+        const params = new URLSearchParams()
+        if (appAccessKey) params.append('appAccessKey', appAccessKey)
+        if (clientName) params.append('clientName', clientName)
+        wsUrl += `?${params.toString()}`
+        console.log('Connecting to WebSocket with authentication parameters')
+      }
+      
       console.log('Connecting to WebSocket:', wsUrl)
       const websocket = new WebSocket(wsUrl)
       currentWebSocket = websocket
@@ -130,37 +151,32 @@ const ChatInterface: React.FC = () => {
         setConnectionStatus('connected')
         setWs(websocket)
         
-        // 发送用户认证信息
-        const sendAuthInfo = () => {
-          try {
-            // 从cookie中获取用户的AccessKey和ClientName
-            const getCookie = (name: string) => {
-              const value = `; ${document.cookie}`;
-              const parts = value.split(`; ${name}=`);
-              if (parts.length === 2) return parts.pop()?.split(';').shift();
-              return null;
+        // 如果没有通过查询参数认证，仍然发送认证消息作为备用方案
+        if (!appAccessKey && !clientName) {
+          const sendAuthInfo = () => {
+            try {
+              // 再次尝试从cookie获取认证信息
+              const appAccessKey = getCookie('appAccessKey');
+              const clientName = getCookie('clientName');
+              
+              if (appAccessKey || clientName) {
+                console.log('Sending authentication info to WebSocket server');
+                websocket.send(JSON.stringify({
+                  type: 'authenticate',
+                  appAccessKey: appAccessKey || '',
+                  clientName: clientName || ''
+                }));
+              } else {
+                console.log('No authentication info found in cookies');
+              }
+            } catch (error) {
+              console.error('Error sending authentication info:', error);
             }
-            
-            const appAccessKey = getCookie('appAccessKey');
-            const clientName = getCookie('clientName');
-            
-            if (appAccessKey || clientName) {
-              console.log('Sending authentication info to WebSocket server');
-              websocket.send(JSON.stringify({
-                type: 'authenticate',
-                appAccessKey: appAccessKey || '',
-                clientName: clientName || ''
-              }));
-            } else {
-              console.log('No authentication info found in cookies');
-            }
-          } catch (error) {
-            console.error('Error sending authentication info:', error);
           }
+          
+          // 延迟发送认证信息，确保WebSocket连接稳定
+          setTimeout(sendAuthInfo, 100);
         }
-        
-        // 延迟发送认证信息，确保WebSocket连接稳定
-        setTimeout(sendAuthInfo, 100);
       }
       
       websocket.onmessage = (event) => {

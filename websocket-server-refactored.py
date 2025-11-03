@@ -39,6 +39,8 @@ from core.state_machine import SessionState, StateMachine, SessionStateManager
 from core.event_handlers import EventProcessor
 from services.message_service import MessageService
 
+# from bohrium_open_sdk import OpenSDK
+
 # Get agent from configuration
 rootagent = agentconfig.get_agent()
 
@@ -46,6 +48,8 @@ rootagent = agentconfig.get_agent()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 logging.getLogger("google_adk.google.adk.tools.base_authenticated_tool").setLevel(logging.ERROR)
+
+
 # 初始化光子收费服务
 if CHARGING_ENABLED:
     init_photon_service(PHOTON_CONFIG)
@@ -210,12 +214,20 @@ class SessionManager:
             return True
         return False
     
-    async def connect_client(self, websocket: WebSocket):
+    async def connect_client(self, websocket: WebSocket, app_access_key: Optional[str] = None, client_name: Optional[str] = None):
         """连接新客户端"""
         await websocket.accept()
         
         # 为新连接创建独立的上下文
         context = ConnectionContext(websocket)
+        
+        # 如果提供了认证信息，立即设置
+        if app_access_key:
+            context.app_access_key = app_access_key
+            context.client_name = client_name or "WebClient"
+            context.is_authenticated = True
+            logger.info(f"用户 {context.user_id} 通过查询参数认证成功，AccessKey: {app_access_key}")
+        
         self.active_connections[websocket] = context
         
         logger.info(f"新用户连接: {context.user_id}")
@@ -226,6 +238,14 @@ class SessionManager:
             
         # 发送初始会话信息
         await self.send_sessions_list(context)
+        await self.send_session_messages(context, session.id)
+        
+        # 如果通过查询参数认证成功，发送认证成功消息
+        if app_access_key:
+            await websocket.send_json({
+                "type": "auth_success",
+                "content": "认证成功"
+            })
         
     def disconnect_client(self, websocket: WebSocket):
         """断开客户端连接"""
@@ -318,7 +338,8 @@ class SessionManager:
                 context.current_session_id,
                 context.user_id,
                 message,
-                runner
+                runner,
+                context  # 传递 ConnectionContext
             )
             
             if result['success']:
@@ -444,7 +465,18 @@ app.add_middleware(HostValidationMiddleware)
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     """WebSocket 端点"""
-    await manager.connect_client(websocket)
+    # 在连接时尝试从查询参数获取认证信息
+    query_params = websocket.query_params
+    app_access_key = query_params.get("appAccessKey")
+    client_name = query_params.get("clientName")
+
+    logger.info(f"app_access_key: {app_access_key}")
+    logger.info(f"client_name: {client_name}")
+
+    # client = OpenSDK(access_key=access_key, app_key=app_key)
+
+    
+    await manager.connect_client(websocket, app_access_key, client_name)
     
     # 获取该连接的上下文
     context = manager.active_connections.get(websocket)

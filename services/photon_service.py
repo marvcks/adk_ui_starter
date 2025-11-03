@@ -22,7 +22,7 @@ class PhotonChargeConfig:
     """光子收费配置"""
     sku_id: int  # 应用的 SKU ID
     dev_access_key: Optional[str] = None  # 开发者 AK（用于调试）
-    client_name: Optional[str] = None  # 客户端名称
+    client_name: Optional[str] = "MolPilot"  # 客户端名称
     base_url: str = "https://openapi.dp.tech/openapi/v1/api/integral/consume"
     
     # 收费规则配置
@@ -92,22 +92,24 @@ class PhotonService:
         # 优先从 WebSocket 连接上下文获取用户 AccessKey
         if context and hasattr(context, 'app_access_key') and context.app_access_key:
             logger.info("Using user AccessKey from WebSocket context")
-            return context.app_access_key
+            logger.info(f"app_access_key: {context.app_access_key}")
+            logger.info(f"client_name: {context.client_name}")
+            return context.app_access_key, context.client_name
         
         # 从 HTTP 请求的 cookie 中获取用户 AccessKey
         if request and request.cookies:
             access_key = request.cookies.get("appAccessKey")
             if access_key:
                 logger.info("Using user AccessKey from cookie")
-                return access_key
+                return access_key, self.config.client_name
         
         # 回退到开发者 AccessKey（用于调试）
-        if self.config.dev_access_key:
-            logger.info("Using developer AccessKey for debugging")
-            return self.config.dev_access_key
+        # if self.config.dev_access_key:
+        #     logger.info("Using developer AccessKey for debugging")
+        #     return self.config.dev_access_key
         
         logger.warning("No AccessKey available")
-        return None
+        return None, None
     
     def calculate_charge_amount(self, input_tokens: int = 0, output_tokens: int = 0, tool_calls: int = 0) -> tuple[int, float]:
         """
@@ -194,7 +196,7 @@ class PhotonService:
         """
         try:
             # 获取用户 AccessKey
-            access_key = self.get_access_key(request, context)
+            access_key, client_name = self.get_access_key(request, context)
             if not access_key:
                 return PhotonChargeResult(
                     success=False,
@@ -240,7 +242,7 @@ class PhotonService:
             )
             
             # 发送收费请求
-            result = await self._send_charge_request(charge_request)
+            result = await self._send_charge_request(charge_request, client_name)
             
             # 更新结果中的光子数量和人民币金额
             result.photon_amount = charge_amount
@@ -261,14 +263,16 @@ class PhotonService:
                 rmb_amount=0.0
             )
     
-    async def _send_charge_request(self, charge_request: PhotonChargeRequest) -> PhotonChargeResult:
+    async def _send_charge_request(self, charge_request: PhotonChargeRequest, client_name: str) -> PhotonChargeResult:
         """发送收费请求到玻尔平台"""
         headers = {
             "accessKey": charge_request.access_key,
             "Content-Type": "application/json"
         }
         
-        if self.config.client_name:
+        if client_name:
+            headers["x-app-key"] = client_name
+        else:
             headers["x-app-key"] = self.config.client_name
         
         payload = {
