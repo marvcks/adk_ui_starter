@@ -359,19 +359,20 @@ class SessionManager:
                     response_message["charge_result"] = result['charge_result']
                     # logger.info(f"收费结果: {response_message['charge_result']}")
 
-                    if not response_message["charge_result"]['success']:
-                        await context.websocket.send_json({
-                                "type": "charge_failed",
-                                "content": f"收费失败: {result['charge_result'].get('message', '未知错误')}，连接将断开",
-                            })
-                        
-                        # wait 5 seconds to let the client receive the message
-                        await asyncio.sleep(5)
+                    if CHARGING_ENABLED:
+                        if not response_message["charge_result"]['success']:
+                            await context.websocket.send_json({
+                                    "type": "charge_failed",
+                                    "content": f"收费失败: {result['charge_result'].get('message', '未知错误')}，连接将断开",
+                                })
                             
-                        # 断开连接
-                        await context.websocket.close(code=4001, reason="Charge failed")
-                        self.disconnect_client(context.websocket)
-                        return
+                            # wait 5 seconds to let the client receive the message
+                            await asyncio.sleep(5)
+                                
+                            # 断开连接
+                            await context.websocket.close(code=4001, reason="Charge failed")
+                            self.disconnect_client(context.websocket)
+                            return
                 
                 
                 # 发送助手回复
