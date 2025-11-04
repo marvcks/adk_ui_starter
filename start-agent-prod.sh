@@ -36,13 +36,13 @@ echo "✅ 前端构建完成"
 # 启动 WebSocket 服务器（集成了 Agent）
 echo "启动 Agent WebSocket 服务器..."
 cd ..
-python websocket-server-refactored.py > websocket.log 2>&1 &
+python websocket-server-refactored.py 2>&1 | tee -a websocket.log &
 WEBSOCKET_PID=$!
 
 # 启动前端预览服务器（生产构建）
 echo "启动前端预览服务器..."
 cd ui
-npm run preview > ../frontend.log 2>&1 &
+npm run preview 2>&1 | tee -a ../frontend.log &
 FRONTEND_PID=$!
 cd ..
 
