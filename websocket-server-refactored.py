@@ -138,7 +138,7 @@ class SessionManager:
         
         task.add_done_callback(handle_init_error)
         
-        logger.info(f"为用户 {context.user_id} 创建新会话: {session_id}")
+        # logger.info(f"为用户 {context.user_id} 创建新会话: {session_id}")
         return session
     
     async def _init_session_runner(self, context: ConnectionContext, session_id: str):
@@ -165,7 +165,7 @@ class SessionManager:
             if state_machine:
                 state_machine.transition_to(SessionState.READY, reason="Runner initialized")
             
-            logger.info(f"Runner 初始化完成: {session_id}")
+            # logger.info(f"Runner 初始化完成: {session_id}")
             
         except Exception as e:
             logger.error(f"初始化Runner失败: {e}")
@@ -226,11 +226,11 @@ class SessionManager:
             context.app_access_key = app_access_key
             context.client_name = client_name or "WebClient"
             context.is_authenticated = True
-            logger.info(f"用户 {context.user_id} 通过查询参数认证成功，AccessKey: {app_access_key}")
+            logger.info(f"用户 {context.user_id} 通过查询参数认证成功, AccessKey: {app_access_key}")
         
         self.active_connections[websocket] = context
         
-        logger.info(f"新用户连接: {context.user_id}")
+        # logger.info(f"新用户连接: {context.user_id}")
         
         # 创建默认会话
         session = await self.create_session(context)
@@ -272,12 +272,12 @@ class SessionManager:
         """发送会话的历史消息"""
         session = self.get_session(context, session_id)
         if not session:
-            logger.warning(f"会话 {session_id} 不存在，无法发送消息历史")
+            # logger.warning(f"会话 {session_id} 不存在，无法发送消息历史")
             return
             
-        logger.info(f"准备发送会话 {session_id} 的消息历史")
+        # logger.info(f"准备发送会话 {session_id} 的消息历史")
         messages_data = context.message_service.get_message_history(session_id)
-        logger.info(f"会话 {session_id} 获取到 {len(messages_data)} 条消息")
+        # logger.info(f"会话 {session_id} 获取到 {len(messages_data)} 条消息")
         
         # 使用简单格式发送消息
         await context.websocket.send_json({
@@ -285,7 +285,7 @@ class SessionManager:
             "session_id": session_id,
             "messages": messages_data
         })
-        logger.info(f"会话 {session_id} 的消息历史已发送到前端")
+        # logger.info(f"会话 {session_id} 的消息历史已发送到前端")
     
     async def send_to_connection(self, context: ConnectionContext, message: WebSocketMessage):
         """发送消息到特定连接"""
@@ -343,21 +343,16 @@ class SessionManager:
             )
             
             if result['success']:
-                # 构建响应消息，包含完整信息
                 response_message = {
                     "type": "assistant",
                     "content": result['response']['content'],
                     "session_id": context.current_session_id
                 }
                 
-                # 添加token使用信息
                 if 'usage_metadata' in result['response']:
                     response_message["usage_metadata"] = result['response']['usage_metadata']
-                
-                # 添加收费结果信息
                 if 'charge_result' in result:
                     response_message["charge_result"] = result['charge_result']
-                    # logger.info(f"收费结果: {response_message['charge_result']}")
 
                     if CHARGING_ENABLED:
                         if not response_message["charge_result"]['success']:
@@ -365,28 +360,17 @@ class SessionManager:
                                     "type": "charge_failed",
                                     "content": f"收费失败: {result['charge_result'].get('message', '未知错误')}，连接将断开",
                                 })
-                            
-                            # wait 5 seconds to let the client receive the message
-                            await asyncio.sleep(5)
-                                
-                            # 断开连接
                             await context.websocket.close(code=4001, reason="Charge failed")
                             self.disconnect_client(context.websocket)
                             return
                 
-                
-                # 发送助手回复
                 await context.websocket.send_json(response_message)
-                
-                # 更新会话信息
                 session.message_count = context.message_service.get_message_count(context.current_session_id)
                 session.last_message_at = datetime.now()
                 
-                # 更新状态机状态
                 if state_machine:
                     state_machine.transition_to(SessionState.READY, reason="Message processing completed")
             else:
-                # 发送错误消息 - 使用简单格式
                 await context.websocket.send_json({
                     "type": "error",
                     "content": f"处理消息失败: {result['error']}"
@@ -470,13 +454,8 @@ async def websocket_endpoint(websocket: WebSocket):
     query_params = websocket.query_params
     app_access_key = query_params.get("appAccessKey")
     client_name = query_params.get("clientName")
-
-    logger.info(f"app_access_key: {app_access_key}")
-    logger.info(f"client_name: {client_name}")
-
-    # client = OpenSDK(access_key=access_key, app_key=app_key)
-
-    
+    logger.info(f"app_access_key from websocket: {app_access_key}")
+    logger.info(f"client_name from websocket: {client_name}")
     await manager.connect_client(websocket, app_access_key, client_name)
     
     # 获取该连接的上下文

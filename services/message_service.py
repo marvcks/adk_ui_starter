@@ -40,15 +40,16 @@ class MessageService:
         """设置WebSocket引用"""
         self.websocket = websocket
     
-    async def process_user_message(self, 
-                                 session_id: str, 
-                                 user_id: str, 
-                                 content: str,
-                                 runner: Runner,
-                                 connection_context=None) -> Dict[str, Any]:
+    async def process_user_message(
+        self, 
+        session_id: str, 
+        user_id: str, 
+        content: str,
+        runner: Runner,
+        connection_context=None
+        ) -> Dict[str, Any]:
         """Process a user message and generate response"""
         
-        # Create message context
         message_id = str(uuid.uuid4())
         context = EventContext(
             session_id=session_id,
@@ -59,28 +60,24 @@ class MessageService:
         )
         
         try:
-            # Record message received event
             await self.event_processor.process_event(
                 EventType.TOOL_CALL_STARTED,  # Using this as a placeholder for message received
                 context,
                 {'content': content, 'type': 'user_message'}
             )
             
-            # Create user message
             user_message = UserMessage(
                 content=content,
                 session_id=session_id
             )
             
-            # Store message in history
             if session_id not in self.message_history:
                 self.message_history[session_id] = []
             self.message_history[session_id].append(user_message)
             
-            logger.info(f"用户消息已保存到会话 {session_id}: {content[:50]}...")
-            logger.info(f"会话 {session_id} 当前消息数量: {len(self.message_history[session_id])}")
+            # logger.info(f"用户消息已保存到会话 {session_id}: {content[:50]}...")
+            # logger.info(f"会话 {session_id} 当前消息数量: {len(self.message_history[session_id])}")
             
-            # Process with agent
             response = await self._process_with_agent(runner, content, context, connection_context)
             
             # Create assistant message
@@ -90,11 +87,10 @@ class MessageService:
                 tool_calls=response.get('tool_calls', [])
             )
             
-            # Store assistant response
             self.message_history[session_id].append(assistant_message)
             
-            logger.info(f"助手消息已保存到会话 {session_id}: {response.get('content', '')[:50]}...")
-            logger.info(f"会话 {session_id} 当前消息数量: {len(self.message_history[session_id])}")
+            # logger.info(f"助手消息已保存到会话 {session_id}: {response.get('content', '')[:50]}...")
+            # logger.info(f"会话 {session_id} 当前消息数量: {len(self.message_history[session_id])}")
             
             # 执行光子收费（如果启用）- 参考原始代码的收费逻辑
             charge_result = None
@@ -106,7 +102,6 @@ class MessageService:
                     connection_context
                 )
             
-            # Record completion event
             await self.event_processor.process_event(
                 EventType.RESPONSE_GENERATED,
                 context,
@@ -405,11 +400,13 @@ class MessageService:
         
         return usage_metadata
     
-    async def _process_photon_charging(self, 
-                                     usage_metadata: Dict[str, int], 
-                                     tool_calls: List[Dict], 
-                                     context: EventContext,
-                                     connection_context=None) -> Optional[Dict[str, Any]]:
+    async def _process_photon_charging(
+        self, 
+        usage_metadata: Dict[str, int], 
+        tool_calls: List[Dict], 
+        context: EventContext,
+        connection_context=None
+        ) -> Optional[Dict[str, Any]]:
         """处理光子扣费 - 参考原始代码的收费逻辑"""
         photon_service = get_photon_service()
         if not photon_service:
@@ -479,11 +476,11 @@ class MessageService:
     def get_message_history(self, session_id: str) -> List[Dict[str, Any]]:
         """Get message history for a session"""
         if session_id not in self.message_history:
-            logger.warning(f"会话 {session_id} 没有消息历史")
+            # logger.warning(f"会话 {session_id} 没有消息历史")
             return []
         
         messages = self.message_history[session_id]
-        logger.info(f"获取会话 {session_id} 的消息历史，共 {len(messages)} 条消息")
+        # logger.info(f"获取会话 {session_id} 的消息历史，共 {len(messages)} 条消息")
         
         # 转换为前端期望的格式
         formatted_messages = []

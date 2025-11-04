@@ -120,13 +120,14 @@ const ChatInterface: React.FC = () => {
       
       const appAccessKey = getCookie('appAccessKey');
       const clientName = getCookie('clientName');
+
+      console.log('appAccessKey: ', appAccessKey)
+      console.log('clientName: ', clientName)
       
       // 动态获取 WebSocket URL，支持代理和远程访问
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
       const host = window.location.hostname
       const port = window.location.port
-      
-      // 如果是通过代理访问，使用当前页面的 host
       let wsUrl = `${protocol}//${host}`
       if (port) {
         wsUrl += `:${port}`
@@ -139,7 +140,7 @@ const ChatInterface: React.FC = () => {
         if (appAccessKey) params.append('appAccessKey', appAccessKey)
         if (clientName) params.append('clientName', clientName)
         wsUrl += `?${params.toString()}`
-        console.log('Connecting to WebSocket with authentication parameters')
+        // console.log('Connecting to WebSocket with authentication parameters')
       }
       
       console.log('Connecting to WebSocket:', wsUrl)
@@ -147,7 +148,7 @@ const ChatInterface: React.FC = () => {
       currentWebSocket = websocket
       
       websocket.onopen = () => {
-        console.log('WebSocket connected')
+        // console.log('WebSocket connected')
         setConnectionStatus('connected')
         setWs(websocket)
         
@@ -182,10 +183,10 @@ const ChatInterface: React.FC = () => {
       websocket.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data)
-          console.log('Received WebSocket message:', data)
+          // console.log('Received WebSocket message:', data)
           handleWebSocketMessage(data)
         } catch (error) {
-          console.error('WebSocket message error:', error)
+          // console.error('WebSocket message error:', error)
         }
       }
       
@@ -195,13 +196,13 @@ const ChatInterface: React.FC = () => {
       }
 
       websocket.onclose = () => {
-        console.log('WebSocket disconnected')
+        // console.log('WebSocket disconnected')
         setConnectionStatus('disconnected')
         setWs(null)
         
         // Auto-reconnect after 3 seconds
         reconnectTimeout = setTimeout(() => {
-          console.log('Attempting to reconnect...')
+          // console.log('Attempting to reconnect...')
           connectWebSocket()
         }, 3000)
       }
