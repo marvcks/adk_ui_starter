@@ -21,9 +21,6 @@ PHOTON_CONFIG = PhotonChargeConfig(
     client_name=os.getenv("PHOTON_CLIENT_NAME", "adk_ui_starter"),
     
     # 收费规则配置
-    input_token_rate=float(os.getenv("PHOTON_INPUT_TOKEN_RATE", "0.001")),  # 输入token费率：0.001元/千token
-    output_token_rate=float(os.getenv("PHOTON_OUTPUT_TOKEN_RATE", "0.03")),  # 输出token费率：0.03元/千token
-    tool_call_cost=int(os.getenv("PHOTON_TOOL_CALL_COST", "1")),  # 每次工具调用费用：1光子
     min_charge=int(os.getenv("PHOTON_MIN_CHARGE", "1")),  # 最小收费光子数
 )
 

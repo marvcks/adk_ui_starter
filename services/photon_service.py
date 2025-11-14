@@ -26,9 +26,6 @@ class PhotonChargeConfig:
     base_url: str = "https://openapi.dp.tech/openapi/v1/api/integral/consume"
     
     # 收费规则配置
-    input_token_rate: float = 0.001  # 输入token费率：0.001元/千token
-    output_token_rate: float = 0.03  # 输出token费率：0.03元/千token
-    tool_call_cost: int = 1  # 每次工具调用费用：1光子
     min_charge: int = 1  # 最小收费光子数
     max_charge: Optional[int] = None  # 最大收费光子数（已废弃，不再使用）
     photon_to_rmb_rate: float = 0.01  # 光子到人民币的换算率 (1光子 = 0.01元)
@@ -104,9 +101,9 @@ class PhotonService:
                 return access_key, self.config.client_name
         
         # 回退到开发者 AccessKey（用于调试）
-        # if self.config.dev_access_key:
-        #     logger.info("Using developer AccessKey for debugging")
-        #     return self.config.dev_access_key
+        if self.config.dev_access_key:
+            logger.info("Using developer AccessKey for debugging")
+            return self.config.dev_access_key
         
         logger.warning("No AccessKey available")
         return None, None
