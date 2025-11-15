@@ -18,7 +18,7 @@ PHOTON_CONFIG = PhotonChargeConfig(
     dev_access_key=os.getenv("PHOTON_DEV_ACCESS_KEY"),  # 可选，用于调试
     
     # 客户端名称
-    client_name=os.getenv("PHOTON_CLIENT_NAME", "adk_ui_starter"),
+    client_name=os.getenv("PHOTON_CLIENT_NAME", "example"),
     
     # 收费规则配置
     min_charge=int(os.getenv("PHOTON_MIN_CHARGE", "1")),  # 最小收费光子数

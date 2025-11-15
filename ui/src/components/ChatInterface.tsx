@@ -600,53 +600,53 @@ const ChatInterface: React.FC = () => {
                   <div className="grid grid-cols-2 gap-4 max-w-2xl mx-auto">
                     <button
                       onClick={() => handleQuickPrompt(
-                        "Deep Learning-based Functional",
-                        "对比不同泛函下水分子的偶极矩。使用PySCF计算B3LYP和Skala泛函下的偶极矩的差异，并与实验值进行对比。"
+                        "Example 1",
+                        "This is an example prompt. You can use it to test the agent."
                       )}
                       className="p-4 text-left bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-lg transition-all duration-200 group"
                     >
                       <div className="font-medium text-gray-800 dark:text-gray-200 mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400">
-                        Deep Learning-based Functional
+                        Example 1
                       </div>
                       <div className="text-xs text-gray-500 dark:text-gray-400 line-clamp-3">
-                        对比不同泛函下水分子的偶极矩...
+                        This is an example prompt ...
                       </div>
                     </button>
                     
                     <button
                       onClick={() => handleQuickPrompt(
-                        "pKA",
-                        "Calculate the pKa of acetic acid in water using two calculations at the B3LYP/6-31G* level of theorywith the CPCM implicit solvation model."
+                        "Example 2",
+                        "This is another example prompt. You can use it to test the agent."
                       )}
                       className="p-4 text-left bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-lg transition-all duration-200 group"
                     >
                       <div className="font-medium text-gray-800 dark:text-gray-200 mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400">
-                        pKA
+                        Example 2
                       </div>
                       <div className="text-xs text-gray-500 dark:text-gray-400 line-clamp-3">
-                        Calculate the pKa of acetic acid in water using ...
+                        This is another example prompt ...
                       </div>
                     </button>
                     
                     <button
                       onClick={() => handleQuickPrompt(
-                        "Carbocations",
-                        "给定一个碳正离子生成反应: R-H -- R+ + H-。你的任务是使用ORCA计算R-H为甲烷时的碳正离子生成焓和吉布斯自由能。\n\n请使用DFT方法（B3LYP泛函和6-31G*基组）优化这些结构（氢负离子除外），并从输出文件中提取相关信息，计算每种R-H的碳正离子生成焓和吉布斯自由能。将结果（单位为kcal/mol）以Markdown表格形式报告。\n\n关于电荷和自旋多重度：分子电荷为0，自旋多重度为1；碳正离子电荷为1，自旋多重度为1；氢负离子电荷为-1，自旋多重度为1。"
+                        "Example 3",
+                        "This is a third example prompt. You can use it to test the agent."
                       )}
                       className="p-4 text-left bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-lg transition-all duration-200 group"
                     >
                       <div className="font-medium text-gray-800 dark:text-gray-200 mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400">
-                        Carbocations
+                        Example 3
                       </div>
                       <div className="text-xs text-gray-500 dark:text-gray-400 line-clamp-3">
-                        给定一个碳正离子生成反应: R-H -- R+ + H-。你的任务是...
+                        This is a third example prompt ...
                       </div>
                     </button>
                     
                     <button
                       onClick={() => handleQuickPrompt(
                         "Case Study",
-                        "研究添加隐式溶剂分子（水）如何改变丙氨酸分子的振动频率。使用ORCA比较气相计算和溶剂（CPCM）中的红外光谱计算结果。所有两个体系均使用PBE0/def2-TZVP方法。最后生成一份报告。"
+                        "This is a case study prompt. You can use it to test the agent."
                       )}
                       className="p-4 text-left bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-lg transition-all duration-200 group"
                     >
@@ -654,7 +654,7 @@ const ChatInterface: React.FC = () => {
                         Case Study
                       </div>
                       <div className="text-xs text-gray-500 dark:text-gray-400 line-clamp-3">
-                        研究隐式溶剂分子对丙氨酸分子振动频率的影响，比较气相和溶剂计算结果...
+                        This is a case study prompt ...
                       </div>
                     </button>
                   </div>

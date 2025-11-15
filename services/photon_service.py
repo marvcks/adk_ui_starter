@@ -103,7 +103,7 @@ class PhotonService:
         # 回退到开发者 AccessKey（用于调试）
         if self.config.dev_access_key:
             logger.info("Using developer AccessKey for debugging")
-            return self.config.dev_access_key
+            return self.config.dev_access_key, self.config.client_name
         
         logger.warning("No AccessKey available")
         return None, None

@@ -1,13 +1,13 @@
 {
   "agent": {
-    "name": "MolPilot",
-    "description": "计算化学智能体",
-    "welcomeMessage": "请告诉我需要进行的计算化学任务",
-    "module": "MolPilot.agent",
+    "name": "Example Agent",
+    "description": "一个示例智能体，用于演示ADK UI Starter的功能",
+    "welcomeMessage": "欢迎使用Example Agent！",
+    "module": "example_agent.agent",
     "rootAgent": "root_agent"
   },
   "ui": {
-    "title": "MolPilot",
+    "title": "Example Agent",
     "theme": {
       "primaryColor": "blue",
       "secondaryColor": "purple"
