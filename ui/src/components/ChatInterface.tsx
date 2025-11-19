@@ -5,6 +5,7 @@ import SessionList from './SessionList'
 import { useAgentConfig } from '../hooks/useAgentConfig'
 import { MessageAnimation, LoadingDots } from './MessageAnimation'
 import { MemoizedMessage } from './MemoizedMessage'
+import { ToolCallPanel } from './ToolCallPanel'
 import FileUpload from './FileUpload'
 import axios from 'axios'
 import { Bot } from 'lucide-react'
@@ -19,6 +20,8 @@ interface Message {
   tool_name?: string
   tool_status?: string
   input_params?: any
+  is_long_running?: boolean
+  tool_result?: any
   isStreaming?: boolean
   usage_metadata?: {
     prompt_tokens?: number
@@ -95,6 +98,37 @@ const ChatInterface: React.FC = () => {
 
   const [ws, setWs] = useState<WebSocket | null>(null)
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected')
+
+  const parseBool = (v: any) => {
+    if (typeof v === 'boolean') return v
+    const s = String(v ?? '').toLowerCase()
+    return s === 'true' || s === '1' || s === 'yes' || s === 'on'
+  }
+
+  const initialShowTool = (() => {
+    const ls = localStorage.getItem('show_tool')
+    if (ls !== null) return parseBool(ls)
+    const envVal: any = (import.meta as any).env?.VITE_SHOW_TOOL
+    return parseBool(envVal ?? true)
+  })()
+
+  const initialShowToolParams = (() => {
+    const ls = localStorage.getItem('show_tool_params')
+    if (ls !== null) return parseBool(ls)
+    const envVal: any = (import.meta as any).env?.VITE_SHOW_TOOL_PARAMS
+    return parseBool(envVal ?? true)
+  })()
+
+  const [showTool, setShowTool] = useState<boolean>(initialShowTool)
+  const [showToolParams, setShowToolParams] = useState<boolean>(initialShowToolParams)
+
+  useEffect(() => {
+    localStorage.setItem('show_tool', String(showTool))
+  }, [showTool])
+
+  useEffect(() => {
+    localStorage.setItem('show_tool_params', String(showToolParams))
+  }, [showToolParams])
 
   useEffect(() => {
     // Keep track of current websocket instance
@@ -423,7 +457,9 @@ const ChatInterface: React.FC = () => {
         timestamp: new Date(timestamp || Date.now()),
         tool_name,
         tool_status: status,
-        input_params: toolInputParams
+        input_params: toolInputParams,
+        is_long_running,
+        tool_result: result
       }
       
       // 使用函数式更新来避免消息重复
@@ -575,6 +611,35 @@ const ChatInterface: React.FC = () => {
                  '未连接'}
               </span>
             </div>
+            <div className="flex items-center gap-2">
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setShowTool(v => !v)}
+                className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${
+                  showTool
+                    ? 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800'
+                    : 'bg-gray-100 text-gray-600 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700'
+                }`}
+                title="显示工具"
+              >
+                工具
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setShowToolParams(v => !v)}
+                disabled={!showTool}
+                className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${
+                  showTool
+                    ? (showToolParams
+                        ? 'bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800'
+                        : 'bg-gray-100 text-gray-600 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700')
+                    : 'opacity-50 cursor-not-allowed bg-gray-100 text-gray-400 border-gray-300 dark:bg-gray-800 dark:text-gray-500 dark:border-gray-700'
+                }`}
+                title="显示详情"
+              >
+                详情
+              </motion.button>
+            </div>
           </div>
         </div>
 
@@ -662,34 +727,55 @@ const ChatInterface: React.FC = () => {
               </div>
             ) : (
               <AnimatePresence initial={false} mode="popLayout">
-                {messages
-                  .filter(message => message.role !== 'tool') // 过滤掉工具消息
-                  .map((message, index, filteredMessages) => (
-                  <motion.div
-                    key={message.id}
-                    layout="position"
-                    initial={index === filteredMessages.length - 1 ? { opacity: 0, y: 20 } : false}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.2 }}
-                    className={`flex gap-4 ${
-                      message.role === 'user' ? 'justify-end' : 'justify-start'
-                    }`}
-                  >
-                    <MemoizedMessage
-                      id={message.id}
-                      role={message.role}
-                      content={message.content}
-                      timestamp={message.timestamp}
-                      isLastMessage={index === filteredMessages.length - 1}
-                      isStreaming={message.isStreaming}
-                      tool_name={message.tool_name}
-                      tool_status={message.tool_status}
-                      input_params={message.input_params}
-                      usage_metadata={message.usage_metadata}
-                      charge_result={message.charge_result}
-                    />
-                  </motion.div>
+                {(showTool ? messages : messages.filter(m => m.role !== 'tool')).map((message, index, visibleMessages) => (
+                  message.role === 'tool' ? (
+                    <motion.div
+                      key={message.id}
+                      layout="position"
+                      initial={index === visibleMessages.length - 1 ? { opacity: 0, y: 20 } : false}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.2 }}
+                      className="flex gap-4 justify-start"
+                    >
+                      <div className="w-full">
+                        <ToolCallPanel
+                          toolName={message.tool_name || ''}
+                          status={message.tool_status || ''}
+                          isLongRunning={message.is_long_running}
+                          result={showToolParams ? message.tool_result : undefined}
+                          timestamp={message.timestamp}
+                          inputParams={showToolParams ? message.input_params : undefined}
+                        />
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key={message.id}
+                      layout="position"
+                      initial={index === visibleMessages.length - 1 ? { opacity: 0, y: 20 } : false}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.2 }}
+                      className={`flex gap-4 ${
+                        message.role === 'user' ? 'justify-end' : 'justify-start'
+                      }`}
+                    >
+                      <MemoizedMessage
+                        id={message.id}
+                        role={message.role}
+                        content={message.content}
+                        timestamp={message.timestamp}
+                        isLastMessage={index === visibleMessages.length - 1}
+                        isStreaming={message.isStreaming}
+                        tool_name={message.tool_name}
+                        tool_status={message.tool_status}
+                        input_params={message.input_params}
+                        usage_metadata={message.usage_metadata}
+                        charge_result={message.charge_result}
+                      />
+                    </motion.div>
+                  )
                 ))}
               </AnimatePresence>
             )}

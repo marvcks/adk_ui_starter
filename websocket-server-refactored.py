@@ -25,6 +25,7 @@ import tempfile
 
 from google.adk import Runner
 from google.adk.sessions import InMemorySessionService
+from google.adk.artifacts import InMemoryArtifactService
 
 # Import configuration
 from config.agent_config import agentconfig
@@ -90,6 +91,7 @@ class ConnectionContext:
         self.sessions: Dict[str, Session] = {}
         self.runners: Dict[str, Runner] = {}
         self.session_services: Dict[str, InMemorySessionService] = {}
+        self.artifact_services: Dict[str, InMemoryArtifactService] = {}
         self.current_session_id: Optional[str] = None
         self.shell_state: Dict[str, any] = {
             "cwd": os.getcwd(),
@@ -145,6 +147,7 @@ class SessionManager:
         """异步初始化会话的runner"""
         try:
             session_service = InMemorySessionService()
+            artifact_service = InMemoryArtifactService()
             await session_service.create_session(
                 app_name=self.app_name,
                 user_id=context.user_id,
@@ -154,10 +157,12 @@ class SessionManager:
             runner = Runner(
                 agent=rootagent,
                 session_service=session_service,
+                artifact_service=artifact_service,
                 app_name=self.app_name
             )
             
             context.session_services[session_id] = session_service
+            context.artifact_services[session_id] = artifact_service
             context.runners[session_id] = runner
             
             # 更新状态机状态
@@ -174,6 +179,8 @@ class SessionManager:
                 del context.sessions[session_id]
             if session_id in context.session_services:
                 del context.session_services[session_id]
+            if session_id in context.artifact_services:
+                del context.artifact_services[session_id]
             if session_id in context.runners:
                 del context.runners[session_id]
             
@@ -198,6 +205,8 @@ class SessionManager:
                 del context.runners[session_id]
             if session_id in context.session_services:
                 del context.session_services[session_id]
+            if session_id in context.artifact_services:
+                del context.artifact_services[session_id]
             
             # 清理状态机
             context.state_manager.remove_session(session_id)

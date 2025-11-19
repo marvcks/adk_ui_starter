@@ -248,7 +248,7 @@ class MessageService:
             self.message_history[context.session_id] = []
         self.message_history[context.session_id].append(tool_message)
         
-        logger.info(f"工具调用消息已保存到会话 {context.session_id}: {tool_name} (long_running: {is_long_running})")
+        # logger.info(f"工具调用消息已保存到会话 {context.session_id}: {tool_name} (long_running: {is_long_running})")
         
         # Send tool call status to frontend - 参考 ADK Web 的消息格式
         if self.websocket:
@@ -316,7 +316,7 @@ class MessageService:
             self.message_history[context.session_id] = []
         self.message_history[context.session_id].append(tool_completion_message)
         
-        logger.info(f"工具完成消息已保存到会话 {context.session_id}: {tool_name} (ID: {response_id})")
+        # logger.info(f"工具完成消息已保存到会话 {context.session_id}: {tool_name} (ID: {response_id})")
         
         # Send tool completion status to frontend - 参考 ADK Web 的消息格式
         if self.websocket:
